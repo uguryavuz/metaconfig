@@ -1,5 +1,5 @@
 --------------------------- MODULE PHash_Proof2 ---------------------------
-EXTENDS PHash_Proof1
+EXTENDS PHash_Proof1_HO
 
 S == {c \in ConfigDomain :
         /\ c.state = [k \in KeyDomain |-> IF KeyInBktAtAddr(k, A[Hash[k]]) 
@@ -225,6 +225,11 @@ THEOREM L1Next == InvWithL1 /\ [Next]_vars => InvL1'
               BY <6>A
             <6>1. q # p
               BY <5>1, RemDef, Zenon
+            <6>X. c_pred.op = [c.op EXCEPT ![p] = BOT]
+              OBVIOUS
+            <6>Y. \A p1 \in ProcSet : p1 # p => c_pred.op[p1] = c.op[p1]
+              OBVIOUS
+
             <6>2. c_pred.op[q] = c.op[q] /\ c_pred.arg[q] = c.arg[q] /\ c_pred.res[q] = c.res[q]
               BY <6>1
             <6>3. pc'[q] = RemainderID
