@@ -1,5 +1,5 @@
 --------------------------- MODULE PHash_Proof1 ---------------------------
-EXTENDS  PHash2_Impl, SequenceTheorems, FiniteSets, TLAPS
+EXTENDS  PHash_Impl, SequenceTheorems, FiniteSets, TLAPS
 INSTANCE Augmentation
 
 VARIABLE P
