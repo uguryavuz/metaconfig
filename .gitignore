@@ -1,0 +1,6 @@
+# macOS attributes folder
+.DS_Store
+
+# TLA+ files
+*.toolbox
+.tlacache
