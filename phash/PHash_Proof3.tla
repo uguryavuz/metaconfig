@@ -1,5 +1,5 @@
 ---------------------------- MODULE PHash_Proof3 ----------------------------
-EXTENDS PHash_Proof2_HO
+EXTENDS PHash_Proof2_HO, FiniteSetTheorems
 
 InvL2 == S # {}
 InvWithL2 == Inv /\ InvL2
@@ -8,7 +8,7 @@ THEOREM L2Init == AInit => InvWithL2
   <1> SUFFICES ASSUME AInit
                PROVE  InvWithL2
     OBVIOUS
-  <1>0. Inv
+  <1>1. Inv
     BY InitInv
   <1>2. InvL2
     <2> SUFFICES \E c \in ConfigDomain : c \in S
@@ -42,7 +42,7 @@ THEOREM L2Init == AInit => InvWithL2
     <2> QED
       BY <2>1, <2>6
   <1> QED
-    BY <1>0, <1>2 DEF InvWithL2
+    BY <1>1, <1>2 DEF InvWithL2
 
 THEOREM L2Next == InvWithL2 /\ [Next]_vars => InvL2'
   <1> USE DEF InvWithL2, Inv, TOK
@@ -276,8 +276,122 @@ THEOREM L2Next == InvWithL2 /\ [Next]_vars => InvL2'
   <1> QED
     BY <1>6, <1>8, Zenon
 
+InvSL == Cardinality(S) = 1
+InvL2SL == Inv /\ InvL2 /\ InvSL
+
+THEOREM SLInit == AInit => InvL2SL
+  <1> SUFFICES ASSUME AInit
+               PROVE  InvL2SL
+    OBVIOUS
+  <1>1. Inv
+    BY InitInv
+  <1>2. InvL2
+    BY L2Init DEF InvWithL2
+  <1>3. InvSL
+    <2>1. ASSUME NEW c1 \in S, NEW c2 \in S
+          PROVE  c1 = c2
+      <3> USE <2>1
+      <3> c1 \in ConfigDomain /\ c2 \in ConfigDomain
+        BY DEF S
+      <3> SUFFICES /\ c1.state = c2.state
+                   /\ c1.op    = c2.op
+                   /\ c1.arg   = c2.arg
+                   /\ c1.res   = c2.res
+        BY DEF ConfigDomain
+      <3>1. c1.state = c2.state
+        BY DEF S
+      <3>2. /\ c1.op = c2.op
+            /\ c1.arg = c2.arg
+            /\ c1.res = c2.res
+        <4> SUFFICES ASSUME NEW p \in ProcSet
+                     PROVE  /\ c1.op[p] = c2.op[p]
+                            /\ c1.arg[p] = c2.arg[p]
+                            /\ c1.res[p] = c2.res[p]
+          BY DEF ConfigDomain
+        <4> USE RemDef 
+        <4>1. CASE pc[p] = RemainderID
+          BY <4>1, Zenon DEF S
+        <4>2. CASE pc[p] \in {"F1", "F2", "F3"}
+          BY <4>2, Zenon DEF S 
+        <4>3. CASE pc[p] \in {"I1", "I2", "I3", "I4", "I5"}
+          BY <4>3, Zenon DEF S
+        <4>4. CASE pc[p] \in {"U1", "U2", "U3", "U4", "U5"}
+          BY <4>4, Zenon DEF S
+        <4>5. CASE pc[p] \in {"R1", "R2", "R3", "R4", "R5"}
+          BY <4>5, Zenon DEF S
+        <4> QED
+          BY <4>1, <4>2, <4>3, <4>4, <4>5, <1>1 DEF LineIDs, Inv, TOK
+      <3> QED
+        BY <3>1, <3>2
+    <2>2. PICK c \in S : TRUE
+      BY <1>2 DEF InvL2
+    <2>3. S = {c}
+      BY <2>1, <2>2
+    <2>4. Cardinality(S) = 1
+      BY <2>3, FS_Singleton, Zenon
+    <2> QED
+      BY <2>4 DEF InvSL
+  <1> QED
+    BY <1>1, <1>2, <1>3 DEF InvL2SL
+
+THEOREM SLNext == InvL2SL /\ [Next]_vars => InvL2SL'
+  <1> USE DEF InvL2SL
+  <1> SUFFICES ASSUME InvL2SL /\ [Next]_vars
+               PROVE  InvL2SL'
+    OBVIOUS
+  <1>1. Inv'
+    BY NextInv
+  <1>2. InvL2'
+    BY L2Next DEF InvWithL2
+  <1>3. InvSL'
+    <2>1. ASSUME NEW c1 \in S', NEW c2 \in S'
+          PROVE  c1 = c2
+      <3> USE <2>1
+      <3> c1 \in ConfigDomain /\ c2 \in ConfigDomain
+        BY DEF S
+      <3> SUFFICES /\ c1.state = c2.state
+                   /\ c1.op    = c2.op
+                   /\ c1.arg   = c2.arg
+                   /\ c1.res   = c2.res
+        BY DEF ConfigDomain
+      <3>1. c1.state = c2.state
+        BY DEF S
+      <3>2. /\ c1.op = c2.op
+            /\ c1.arg = c2.arg
+            /\ c1.res = c2.res
+        <4> SUFFICES ASSUME NEW p \in ProcSet
+                     PROVE  /\ c1.op[p] = c2.op[p]
+                            /\ c1.arg[p] = c2.arg[p]
+                            /\ c1.res[p] = c2.res[p]
+          BY DEF ConfigDomain
+        <4> USE RemDef 
+        <4>1. CASE pc'[p] = RemainderID
+          BY <4>1, Zenon, SPrimeRewrite DEF SPrime
+        <4>2. CASE pc'[p] \in {"F1", "F2", "F3"}
+          BY <4>2, Zenon DEF S 
+        <4>3. CASE pc'[p] \in {"I1", "I2", "I3", "I4", "I5"}
+          BY <4>3, Zenon DEF S
+        <4>4. CASE pc'[p] \in {"U1", "U2", "U3", "U4", "U5"}
+          BY <4>4, Zenon DEF S
+        <4>5. CASE pc'[p] \in {"R1", "R2", "R3", "R4", "R5"}
+          BY <4>5, Zenon DEF S
+        <4> QED
+          BY <4>1, <4>2, <4>3, <4>4, <4>5, <1>1 DEF LineIDs, Inv, TOK
+      <3> QED
+        BY <3>1, <3>2
+    <2>2. PICK c \in S' : TRUE
+      BY <1>2 DEF InvL2
+    <2>3. S' = {c}
+      BY <2>1, <2>2
+    <2>4. Cardinality(S') = 1
+      BY <2>3, FS_Singleton, Zenon
+    <2> QED 
+      BY <2>4 DEF InvSL
+  <1> QED
+    BY <1>1, <1>2, <1>3 DEF InvL2SL
+
 =============================================================================
 \* Modification History
-\* Last modified Fri Aug 09 10:41:49 EDT 2024 by uguryavuz
+\* Last modified Fri Aug 09 11:48:42 EDT 2024 by uguryavuz
 \* Last modified Thu Aug 08 18:01:34 UTC 2024 by uyavuz
 \* Created Thu Aug 08 17:54:53 UTC 2024 by uyavuz
