@@ -390,8 +390,21 @@ THEOREM SLNext == InvL2SL /\ [Next]_vars => InvL2SL'
   <1> QED
     BY <1>1, <1>2, <1>3 DEF InvL2SL
 
+THEOREM StrongLinearizable ==
+    Spec => [](/\ Inv
+               /\ InvL1  (* S \in SUBSET P *)
+               /\ InvL2  (* S # {} *)
+               /\ InvSL) (* Cardinality(S) = 1 *)
+  <1> DEFINE InvALL == Inv /\ InvL1 /\ InvL2 /\ InvSL
+  <1>1. AInit => InvALL
+    BY InitInv, L1Init, SLInit DEF InvWithL1, InvL2SL
+  <1>2. InvALL /\ [Next]_vars => InvALL'
+    BY NextInv, L1Next, SLNext DEF InvWithL1, InvL2SL
+  <1> QED
+    BY <1>1, <1>2, PTL DEF Spec
+
 =============================================================================
 \* Modification History
-\* Last modified Fri Aug 09 11:48:42 EDT 2024 by uguryavuz
+\* Last modified Fri Aug 09 15:21:59 EDT 2024 by uguryavuz
 \* Last modified Thu Aug 08 18:01:34 UTC 2024 by uyavuz
 \* Created Thu Aug 08 17:54:53 UTC 2024 by uyavuz
