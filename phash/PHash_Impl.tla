@@ -2,7 +2,7 @@
 EXTENDS   UnorderedMap_Type, Integers, Sequences, FiniteSets
 CONSTANT  RemainderID, Hash, Addrs, N
 VARIABLES pc, A, MemLocs, AllocAddrs, bucket, newbkt, r, arg, ret
-algvars == <<A, MemLocs, AllocAddrs, bucket, newbkt, r>>
+vars == <<pc, A, MemLocs, AllocAddrs, bucket, newbkt, r, arg, ret>>
 
 KeyInBktAtAddr(k, addr) ==
   LET

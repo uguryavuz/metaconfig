@@ -2,199 +2,110 @@
 EXTENDS  PHash_Impl, SequenceTheorems, FiniteSets, TLAPS
 INSTANCE Augmentation
 
-VARIABLE P
-vars == algvars \o <<pc, arg, ret, P>>
-
 ASSUME HashDef == Hash \in [KeyDomain -> 1..N]
 ASSUME NDef    == N \in Nat \ {0}
 ASSUME NULLDef == /\ NULL \notin Addrs
                   /\ NULL \notin ValDomain
-ASSUME RemDef  == RemainderID \notin {"F1", "F2", "F3",
-                                      "I1", "I2", "I3", "I4", "I5",
-                                      "U1", "U2", "U3", "U4", "U5",
-                                      "R1", "R2", "R3", "R4", "R5"}
+ASSUME RemDef  == RemainderID = "Remainder"
+                                      
+InvokeLine(p) == /\ pc[p] = RemainderID
+                 /\ \E op \in OpNames :
+                       /\ pc' = [pc EXCEPT ![p] = OpToInvocLine(op)]
+                       /\ \E new_arg \in ArgsOf(op) : arg' = [arg EXCEPT ![p] = new_arg]
+                 /\ UNCHANGED <<A, MemLocs, AllocAddrs, bucket, newbkt, r, ret>>
 
-AInit == /\ Init
-         /\ P = {[state |-> [k \in KeyDomain |-> NULL],
-                  op    |-> [p \in ProcSet   |-> BOT],
-                  arg   |-> [p \in ProcSet   |-> BOT],
-                  res   |-> [p \in ProcSet   |-> BOT]]}
+InvocnAction == \E p \in ProcSet : InvokeLine(p)
+IntermAction == \E p \in ProcSet : \E LineAction \in IntLines(p) : LineAction
+ReturnAction == \E p \in ProcSet : \E LineAction \in RetLines(p) : LineAction
 
-L0(p) == /\ pc[p] = RemainderID
-         /\ \E op \in OpNames :
-            /\ pc' = [pc EXCEPT ![p] = OpToInvocLine(op)]
-            /\ \E new_arg \in ArgsOf(op) :
-               /\ arg' = [arg EXCEPT ![p] = new_arg]
-               /\ P' = Evolve(Invoke(P, p, op, new_arg))
-         /\ UNCHANGED algvars
-         /\ UNCHANGED ret
-
-IntLine(p) == \E Line \in IntLines(p) : /\ Line
-                                        /\ P' = Evolve(P)
-
-RetLine(p) == \E Line \in RetLines(p) : /\ Line
-                                        /\ P' = Filter(Evolve(P), p, ret'[p])
-
-Next == \E p \in ProcSet : \/ L0(p)
-                           \/ IntLine(p)
-                           \/ RetLine(p)
-
-Spec == AInit /\ [][Next]_vars     
-
-\* Type correctness for P
-
-PTypeOK == P \in SUBSET ConfigDomain
-
-LEMMA InitPTypeOK == AInit => PTypeOK
-  BY DEF AInit, Init, PTypeOK, ConfigDomain, OpDomain, ArgDomain, ResDomain, StateDomain
-
-LEMMA NextPTypeOK == PTypeOK /\ [Next]_vars => PTypeOK'
-  <1> USE DEF PTypeOK, ConfigDomain, OpDomain, ArgDomain, ResDomain, StateDomain
-  <1> SUFFICES ASSUME PTypeOK,
-                      [Next]_vars
-               PROVE  PTypeOK'
-    OBVIOUS
-  <1>1. CASE Next
-    <2>1. ASSUME NEW p \in ProcSet, 
-                 L0(p)
-          PROVE  PTypeOK'
-      BY <2>1 DEF L0, Evolve, Invoke
-    <2>2. ASSUME NEW p \in ProcSet, 
-                 IntLine(p)
-          PROVE  PTypeOK'
-      <3> SUFFICES ASSUME NEW Line \in IntLines(p),
-                          Line,
-                          P' = Evolve(P)
-                   PROVE  PTypeOK'
-        BY <2>2, Zenon DEF IntLine
-      <3> USE DEF Evolve
-      <3>1.  CASE Line = F1(p) BY <3>1  DEF F1
-      <3>2.  CASE Line = F2(p) BY <3>2  DEF F2
-      <3>3.  CASE Line = I1(p) BY <3>3  DEF I1
-      <3>4.  CASE Line = I2(p) BY <3>4  DEF I2
-      <3>5.  CASE Line = I3(p) BY <3>5  DEF I3
-      <3>6.  CASE Line = I4(p) BY <3>6  DEF I4
-      <3>7.  CASE Line = U1(p) BY <3>7  DEF U1
-      <3>8.  CASE Line = U2(p) BY <3>8  DEF U2
-      <3>9.  CASE Line = U3(p) BY <3>9  DEF U3
-      <3>10. CASE Line = U4(p) BY <3>10 DEF U4
-      <3>11. CASE Line = R1(p) BY <3>11 DEF R1
-      <3>12. CASE Line = R2(p) BY <3>12 DEF R2
-      <3>13. CASE Line = R3(p) BY <3>13 DEF R3
-      <3>14. CASE Line = R4(p) BY <3>14 DEF R4
-      <3> QED
-        BY Zenon, <3>1, <3>2, <3>3, <3>4, <3>5, <3>6, <3>7, <3>8, <3>9, <3>10, <3>11, <3>12, <3>13, <3>14
-    <2>3. ASSUME NEW p \in ProcSet, 
-                 RetLine(p)
-          PROVE  PTypeOK'
-      <3> SUFFICES ASSUME NEW Line \in RetLines(p),
-                          Line,
-                          P' = Filter(Evolve(P), p, ret'[p])
-                   PROVE  PTypeOK'
-        BY <2>3, Zenon DEF RetLine
-      <3> USE DEF Evolve, Filter
-      <3>1. CASE Line = F3(p) BY <3>1 DEF F3
-      <3>2. CASE Line = I5(p) BY <3>2 DEF I5
-      <3>3. CASE Line = U5(p) BY <3>3 DEF U5
-      <3>4. CASE Line = R5(p) BY <3>4 DEF R5
-      <3> QED
-        BY Zenon, <3>1, <3>2, <3>3, <3>4 DEF RetLines
-    <2> QED
-      BY <1>1, <2>1, <2>2, <2>3 DEF Next
-  <1>2. CASE UNCHANGED vars
-    BY <1>2 DEF vars, algvars
-  <1> QED
-    BY <1>1, <1>2
-
-AddrsOK == \A p \in ProcSet : pc[p] \in {"I4", "U4", "R4"}
-              => /\ \A q \in ProcSet : (p # q => /\ newbkt[p] # bucket[q]
-                                                 /\ newbkt[p] # newbkt[q])
-                 /\ \A idx \in 1..N  : (A[idx] # newbkt[p])
-                 /\ newbkt[p] # bucket[p]
-                 /\ newbkt[p] \in AllocAddrs
-             
-BktOK == \A p \in ProcSet : /\ pc[p] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[p].key, bucket[p]) 
-                                                          /\ r[p] = NULL)
-                            /\ pc[p] \in {"U3", "U4"} => (IF KeyInBktAtAddr(arg[p].key, bucket[p])
-                                                             THEN (/\ r[p] = ValOfKeyInBktAtAddr(arg[p].key, bucket[p]) 
-                                                                   /\ r[p] # NULL)
-                                                             ELSE r[p] = NULL)
-                            /\ pc[p] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[p].key, bucket[p]) 
-                                                          /\ r[p] = ValOfKeyInBktAtAddr(arg[p].key, bucket[p]) 
-                                                          /\ r[p] # NULL)
-
-Uniq == \A addr \in AllocAddrs : LET bucket_arr == MemLocs[addr] IN
-           \A j1, j2 \in 1..Len(bucket_arr) : bucket_arr[j1].key = bucket_arr[j2].key => j1 = j2
-           
-NewBktOK == \A p \in ProcSet : 
-               /\ pc[p] = "I4" => /\ KeyInBktAtAddr(arg[p].key, newbkt[p])
-                                  /\ ValOfKeyInBktAtAddr(arg[p].key, newbkt[p]) = arg[p].val
-                                  /\ \A k \in KeyDomain : k # arg[p].key => /\ KeyInBktAtAddr(k, bucket[p]) = KeyInBktAtAddr(k, newbkt[p])
-                                                                            /\ KeyInBktAtAddr(k, bucket[p]) =>
-                                                                               (ValOfKeyInBktAtAddr(k, bucket[p]) = ValOfKeyInBktAtAddr(k, newbkt[p]))
-               /\ pc[p] = "U4" => /\ KeyInBktAtAddr(arg[p].key, newbkt[p])
-                                  /\ ValOfKeyInBktAtAddr(arg[p].key, newbkt[p]) = arg[p].val
-                                  /\ \A k \in KeyDomain : k # arg[p].key => /\ KeyInBktAtAddr(k, bucket[p]) = KeyInBktAtAddr(k, newbkt[p])
-                                                                            /\ KeyInBktAtAddr(k, bucket[p]) =>
-                                                                               (ValOfKeyInBktAtAddr(k, bucket[p]) = ValOfKeyInBktAtAddr(k, newbkt[p]))
-               /\ pc[p] = "R4" => /\ ~KeyInBktAtAddr(arg[p].key, newbkt[p])
-                                  /\ \A k \in KeyDomain : k # arg[p].key => /\ KeyInBktAtAddr(k, bucket[p]) = KeyInBktAtAddr(k, newbkt[p])
-                                                                            /\ KeyInBktAtAddr(k, bucket[p]) =>
-                                                                               (ValOfKeyInBktAtAddr(k, bucket[p]) = ValOfKeyInBktAtAddr(k, newbkt[p]))
-
-TOK == /\ pc \in [ProcSet -> LineIDs]
-       /\ A \in [1..N -> AllocAddrs \union {NULL}]
-       /\ MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])]
-       /\ AllocAddrs \in SUBSET Addrs
-       /\ bucket \in [ProcSet -> AllocAddrs \union {NULL}]
-       /\ newbkt \in [ProcSet -> AllocAddrs \union {NULL}]
-       /\ r \in [ProcSet -> ValDomain \union {NULL}]
-       /\ arg \in [ProcSet -> ArgDomain]
-       /\ ret \in [ProcSet -> RetDomain]
-       /\ \A p \in ProcSet : (pc[p] # RemainderID) => arg[p] \in ArgsOf(LineIDtoOp(pc[p]))
-       
-Inv == /\ PTypeOK
-       /\ TOK
-       /\ AddrsOK
-       /\ BktOK
-       /\ Uniq
-       /\ NewBktOK
+Next == \/ InvocnAction
+        \/ IntermAction
+        \/ ReturnAction
         
-LEMMA InitInv == AInit => Inv
-  <1> USE RemDef, InitPTypeOK DEF TOK, AInit, Init, LineIDs, RetDomain, AddrsOK, BktOK, NewBktOK, Uniq
-  <1> SUFFICES ASSUME AInit
-               PROVE  Inv
+Spec == Init /\ [][Next]_vars
+
+AddrsInv  == \A p \in ProcSet : pc[p] \in {"I4", "U4", "R4"}
+               => /\ \A q \in ProcSet : (p # q => (newbkt[p] # bucket[q] /\ newbkt[p] # newbkt[q]))
+                  /\ \A idx \in 1..N  : (A[idx] # newbkt[p])
+                  /\ newbkt[p] # bucket[p]
+                  /\ newbkt[p] \in AllocAddrs
+
+BktInv    == \A p \in ProcSet : 
+                  /\ pc[p] \in {"I3", "I4"} => (~KeyInBktAtAddr(arg[p].key, bucket[p]) /\ r[p] = NULL)
+                  /\ pc[p] \in {"U3", "U4"} => (IF KeyInBktAtAddr(arg[p].key, bucket[p])
+                                                   THEN (r[p] = ValOfKeyInBktAtAddr(arg[p].key, bucket[p]) /\ r[p] # NULL)
+                                                   ELSE  r[p] = NULL)
+                  /\ pc[p] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[p].key, bucket[p]) 
+                                                /\ r[p] = ValOfKeyInBktAtAddr(arg[p].key, bucket[p]) 
+                                                /\ r[p] # NULL)
+
+NewBktInv == \A p \in ProcSet : 
+                  /\ pc[p] = "I4" => /\ KeyInBktAtAddr(arg[p].key, newbkt[p])
+                                     /\ ValOfKeyInBktAtAddr(arg[p].key, newbkt[p]) = arg[p].val
+                                     /\ \A k \in KeyDomain : k # arg[p].key => /\ KeyInBktAtAddr(k, bucket[p]) = KeyInBktAtAddr(k, newbkt[p])
+                                                                               /\ KeyInBktAtAddr(k, bucket[p]) =>
+                                                                                  (ValOfKeyInBktAtAddr(k, bucket[p]) = ValOfKeyInBktAtAddr(k, newbkt[p]))
+                  /\ pc[p] = "U4" => /\ KeyInBktAtAddr(arg[p].key, newbkt[p])
+                                     /\ ValOfKeyInBktAtAddr(arg[p].key, newbkt[p]) = arg[p].val
+                                     /\ \A k \in KeyDomain : k # arg[p].key => /\ KeyInBktAtAddr(k, bucket[p]) = KeyInBktAtAddr(k, newbkt[p])
+                                                                               /\ KeyInBktAtAddr(k, bucket[p]) =>
+                                                                                  (ValOfKeyInBktAtAddr(k, bucket[p]) = ValOfKeyInBktAtAddr(k, newbkt[p]))
+                  /\ pc[p] = "R4" => /\ ~KeyInBktAtAddr(arg[p].key, newbkt[p])
+                                     /\ \A k \in KeyDomain : k # arg[p].key => /\ KeyInBktAtAddr(k, bucket[p]) = KeyInBktAtAddr(k, newbkt[p])
+                                                                               /\ KeyInBktAtAddr(k, bucket[p]) =>
+                                                                                  (ValOfKeyInBktAtAddr(k, bucket[p]) = ValOfKeyInBktAtAddr(k, newbkt[p]))
+
+UniqInv   == \A addr \in AllocAddrs : LET bucket_arr == MemLocs[addr] IN
+                                      \A j1, j2 \in 1..Len(bucket_arr) : bucket_arr[j1].key = bucket_arr[j2].key => j1 = j2
+
+TypeOK    == /\ pc \in [ProcSet -> LineIDs]
+             /\ A \in [1..N -> AllocAddrs \union {NULL}]
+             /\ MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])]
+             /\ AllocAddrs \in SUBSET Addrs
+             /\ bucket \in [ProcSet -> AllocAddrs \union {NULL}]
+             /\ newbkt \in [ProcSet -> AllocAddrs \union {NULL}]
+             /\ r \in [ProcSet -> ValDomain \union {NULL}]
+             /\ arg \in [ProcSet -> ArgDomain]
+             /\ ret \in [ProcSet -> RetDomain]
+             /\ \A p \in ProcSet : (pc[p] # RemainderID) => arg[p] \in ArgsOf(LineIDtoOp(pc[p]))
+
+Inv == /\ AddrsInv
+       /\ BktInv
+       /\ NewBktInv
+       /\ UniqInv
+       /\ TypeOK
+       
+THEOREM InitInv == Init => Inv
+  <1> USE RemDef DEF TypeOK, Init, LineIDs, RetDomain, AddrsInv, BktInv, NewBktInv, UniqInv
+  <1> SUFFICES ASSUME Init PROVE Inv
     OBVIOUS
-  <1>1. PTypeOK
+  <1>1. TypeOK
     OBVIOUS
-  <1>2. TOK
+  <1>2. AddrsInv
     OBVIOUS
-  <1>3. AddrsOK
+  <1>3. BktInv
+    OBVIOUS 
+  <1>4. NewBktInv
     OBVIOUS
-  <1>4. BktOK
-    OBVIOUS
-  <1>5. Uniq
-    OBVIOUS
-  <1>6. NewBktOK
-    OBVIOUS
+  <1>5. UniqInv  
+    OBVIOUS 
   <1> QED
-    BY <1>1, <1>2, <1>3, <1>4, <1>5, <1>6 DEF Inv
-  
-LEMMA NextInv == Inv /\ [Next]_vars => Inv'
-  <1> USE DEF Inv, TOK
-  <1> SUFFICES ASSUME Inv, [Next]_vars
-               PROVE  Inv'
+    BY <1>1, <1>2, <1>3, <1>4, <1>5 DEF Inv
+    
+THEOREM NextInv == Inv /\ [Next]_vars => Inv'
+  <1> SUFFICES ASSUME Inv, [Next]_vars PROVE Inv'
     OBVIOUS
   <1>1. CASE Next
-    <2>1. ASSUME NEW p \in ProcSet, 
-                 L0(p)
-          PROVE  Inv'
-      <3> USE <2>1 DEF L0, algvars
-      <3>1. PTypeOK'
-        BY NextPTypeOK
-      <3>2. (A       \in [1..N    -> AllocAddrs \union {NULL}])'
+    <2> USE <1>1
+    <2>1. CASE InvocnAction
+      <3> SUFFICES ASSUME NEW p \in ProcSet,
+                          InvokeLine(p)
+                   PROVE  Inv'
+        BY <2>1 DEF InvocnAction
+      <3> USE <2>1 DEF InvokeLine, Inv, TypeOK, vars
+      <3>1. (A       \in [1..N    -> AllocAddrs \union {NULL}])'
         OBVIOUS
-      <3>3. (MemLocs \in [Addrs   -> Seq([key: KeyDomain, val: ValDomain])])'
+      <3>2. (MemLocs \in [Addrs   -> Seq([key: KeyDomain, val: ValDomain])])'
         <4> DEFINE D == Addrs
         <4> DEFINE R == Seq([key: KeyDomain, val: ValDomain])
         <4>0. MemLocs \in [D -> R]
@@ -210,32 +121,32 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
         <4> HIDE DEF D, R
         <4> QED
           BY <4>0, <4>1, <4>2, <4>3
-      <3>4. (AllocAddrs \in SUBSET Addrs)'
+      <3>3. (AllocAddrs \in SUBSET Addrs)'
         OBVIOUS
-      <3>5. (bucket  \in [ProcSet -> AllocAddrs \union {NULL}])'
+      <3>4. (bucket  \in [ProcSet -> AllocAddrs \union {NULL}])'
         OBVIOUS
-      <3>6. (newbkt  \in [ProcSet -> AllocAddrs \union {NULL}])'
+      <3>5. (newbkt  \in [ProcSet -> AllocAddrs \union {NULL}])'
         OBVIOUS
-      <3>7. (r       \in [ProcSet -> ValDomain \union {NULL}])'
+      <3>6. (r       \in [ProcSet -> ValDomain \union {NULL}])'
         OBVIOUS
-      <3>8. (ret     \in [ProcSet -> RetDomain])'
+      <3>7. (ret     \in [ProcSet -> RetDomain])'
         BY DEF RetDomain
       <3> SUFFICES /\ pc' \in [ProcSet -> LineIDs]
                    /\ arg' \in [ProcSet -> ArgDomain]
                    /\ \A q \in ProcSet : (pc'[q] # RemainderID) => arg'[q] \in ArgsOf(LineIDtoOp(pc'[q]))
-                   /\ AddrsOK'
-                   /\ BktOK'
-                   /\ Uniq'
-                   /\ NewBktOK'
-        BY <3>1, <3>2, <3>3, <3>4, <3>5, <3>6, <3>7, <3>8, Zenon
+                   /\ AddrsInv'
+                   /\ BktInv'
+                   /\ UniqInv'
+                   /\ NewBktInv'
+        BY <3>1, <3>2, <3>3, <3>4, <3>5, <3>6, <3>7, Zenon
       <3> PICK op \in OpNames :
                   /\ pc' = [pc EXCEPT ![p] = OpToInvocLine(op)]
                   /\ \E new_arg \in ArgsOf(op) : arg' = [arg EXCEPT ![p] = new_arg]
         BY Zenon
       <3> PICK new_arg \in ArgsOf(op) : arg' = [arg EXCEPT ![p] = new_arg]
         BY Zenon
-      <3>11. CASE op = "Find"
-        <4> USE <3>11
+      <3>8. CASE op = "Find"
+        <4> USE <3>8
         <4>1. pc' \in [ProcSet -> LineIDs]
           BY Zenon DEF LineIDs, OpToInvocLine
         <4>2. arg' \in [ProcSet -> ArgDomain]
@@ -258,7 +169,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>1, <5>2
         <4>4. pc'[p] = "F1"
           BY Zenon DEF OpToInvocLine
-        <4>5. AddrsOK'
+        <4>5. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -266,19 +177,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>6. BktOK'
+        <4>6. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -289,14 +200,14 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5> USE RemDef, <4>4
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -310,7 +221,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -340,7 +251,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -363,17 +274,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>7. Uniq'
+        <4>7. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>8. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>8. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg'[q].val
@@ -389,13 +300,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg'[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                              /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                 (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY DEF NewBktOK
-          <5>0. ASSUME NEW k \in KeyDomain
+            BY DEF NewBktInv
+          <5>1. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
                        /\ pc[q] \in {"I4", "U4", "R4"} => ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, bucket[q])'
                        /\ ValOfKeyInBktAtAddr(k, newbkt[q]) = ValOfKeyInBktAtAddr(k, newbkt[q])'
-            <6> USE <5>0
+            <6> USE <5>1
             <6>1. pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>2. KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -437,29 +348,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                 BY <7>1, <7>5
             <6> QED
               BY <6>1, <6>2, <6>3, <6>4
-          <5>1. CASE pc'[q] = "I4"
-            <6> USE <5>1
-            <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
-              BY <4>4, Zenon
-            <6> SUFFICES /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
-                         /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
-                         /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
-                                                                   /\ KeyInBktAtAddr(k, bucket[q])' =>
-                                                                      (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-              OBVIOUS
-            <6>1A. pc'[q] = "I4" /\ arg'[q].key \in KeyDomain
-              BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "I4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
-                  /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
-                  /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
-                                                            /\ KeyInBktAtAddr(k, bucket[q]) =>
-                                                               (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
-            <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
-          <5>2. CASE pc'[q] = "U4"
+          <5>2. CASE pc'[q] = "I4"
             <6> USE <5>2
             <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
               BY <4>4, Zenon
@@ -469,20 +358,42 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                                    /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                       (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
               OBVIOUS
-            <6>1A. pc'[q] = "U4" /\ arg'[q].key \in KeyDomain
+            <6>1. pc'[q] = "I4" /\ arg'[q].key \in KeyDomain
               BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "U4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
+            <6>2. pc[q] = "I4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>2, Zenon DEF NewBktInv
             <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
-          <5>3. CASE pc'[q] = "R4"
+              BY <5>1, <6>2, <6>3, ZenonT(90)
+          <5>3. CASE pc'[q] = "U4"
             <6> USE <5>3
+            <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
+              BY <4>4, Zenon
+            <6> SUFFICES /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
+                         /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
+                         /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
+                                                                   /\ KeyInBktAtAddr(k, bucket[q])' =>
+                                                                      (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
+              OBVIOUS
+            <6>1. pc'[q] = "U4" /\ arg'[q].key \in KeyDomain
+              BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
+            <6>2. pc[q] = "U4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
+                  /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
+                  /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
+                                                            /\ KeyInBktAtAddr(k, bucket[q]) =>
+                                                               (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
+              BY <6>2, Zenon DEF NewBktInv
+            <6> QED
+              BY <5>1, <6>2, <6>3, ZenonT(90)
+          <5>4. CASE pc'[q] = "R4"
+            <6> USE <5>4
             <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
               BY <4>4, Zenon
             <6> SUFFICES /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])'
@@ -490,23 +401,23 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                                    /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                       (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
               OBVIOUS
-            <6>1A. pc'[q] = "R4" /\ arg'[q].key \in KeyDomain
+            <6>1. pc'[q] = "R4" /\ arg'[q].key \in KeyDomain
               BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "R4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])
+            <6>2. pc[q] = "R4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>2, Zenon DEF NewBktInv
             <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
+              BY <5>1, <6>2, <6>3, ZenonT(90)
           <5> QED
-            BY <5>1, <5>2, <5>3
+            BY <5>2, <5>3, <5>4
         <4> QED
           BY <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8
-      <3>12. CASE op = "Insert"
-        <4> USE <3>12
+      <3>9. CASE op = "Insert"
+        <4> USE <3>9
         <4>1. pc' \in [ProcSet -> LineIDs]
           BY Zenon DEF LineIDs, OpToInvocLine
         <4>2. arg' \in [ProcSet -> ArgDomain]
@@ -529,7 +440,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>1, <5>2
         <4>4. pc'[p] = "I1"
           BY Zenon DEF OpToInvocLine
-        <4>5. AddrsOK'
+        <4>5. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -537,19 +448,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>6. BktOK'
+        <4>6. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -560,14 +471,14 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5> USE RemDef, <4>4
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -581,7 +492,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -611,7 +522,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -634,17 +545,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>7. Uniq'
+        <4>7. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>8. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>8. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg'[q].val
@@ -660,13 +571,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg'[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                              /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                 (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY DEF NewBktOK
-          <5>0. ASSUME NEW k \in KeyDomain
+            BY DEF NewBktInv
+          <5>1. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
                        /\ pc[q] \in {"I4", "U4", "R4"} => ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, bucket[q])'
                        /\ ValOfKeyInBktAtAddr(k, newbkt[q]) = ValOfKeyInBktAtAddr(k, newbkt[q])'
-            <6> USE <5>0
+            <6> USE <5>1
             <6>1. pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>2. KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -708,29 +619,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                 BY <7>1, <7>5
             <6> QED
               BY <6>1, <6>2, <6>3, <6>4
-          <5>1. CASE pc'[q] = "I4"
-            <6> USE <5>1
-            <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
-              BY <4>4, Zenon
-            <6> SUFFICES /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
-                         /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
-                         /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
-                                                                   /\ KeyInBktAtAddr(k, bucket[q])' =>
-                                                                      (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-              OBVIOUS
-            <6>1A. pc'[q] = "I4" /\ arg'[q].key \in KeyDomain
-              BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "I4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
-                  /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
-                  /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
-                                                            /\ KeyInBktAtAddr(k, bucket[q]) =>
-                                                               (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
-            <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
-          <5>2. CASE pc'[q] = "U4"
+          <5>2. CASE pc'[q] = "I4"
             <6> USE <5>2
             <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
               BY <4>4, Zenon
@@ -740,20 +629,42 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                                    /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                       (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
               OBVIOUS
-            <6>1A. pc'[q] = "U4" /\ arg'[q].key \in KeyDomain
+            <6>1. pc'[q] = "I4" /\ arg'[q].key \in KeyDomain
               BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "U4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
+            <6>2. pc[q] = "I4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>2, Zenon DEF NewBktInv
             <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
-          <5>3. CASE pc'[q] = "R4"
+              BY <5>1, <6>2, <6>3, ZenonT(90)
+          <5>3. CASE pc'[q] = "U4"
             <6> USE <5>3
+            <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
+              BY <4>4, Zenon
+            <6> SUFFICES /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
+                         /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
+                         /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
+                                                                   /\ KeyInBktAtAddr(k, bucket[q])' =>
+                                                                      (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
+              OBVIOUS
+            <6>1. pc'[q] = "U4" /\ arg'[q].key \in KeyDomain
+              BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
+            <6>2. pc[q] = "U4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
+                  /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
+                  /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
+                                                            /\ KeyInBktAtAddr(k, bucket[q]) =>
+                                                               (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
+              BY <6>2, Zenon DEF NewBktInv
+            <6> QED
+              BY <5>1, <6>2, <6>3, ZenonT(90)
+          <5>4. CASE pc'[q] = "R4"
+            <6> USE <5>4
             <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
               BY <4>4, Zenon
             <6> SUFFICES /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])'
@@ -761,23 +672,23 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                                    /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                       (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
               OBVIOUS
-            <6>1A. pc'[q] = "R4" /\ arg'[q].key \in KeyDomain
+            <6>1. pc'[q] = "R4" /\ arg'[q].key \in KeyDomain
               BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "R4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])
+            <6>2. pc[q] = "R4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>2, Zenon DEF NewBktInv
             <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
+              BY <5>1, <6>2, <6>3, ZenonT(90)
           <5> QED
-            BY <5>1, <5>2, <5>3
+            BY <5>2, <5>3, <5>4
         <4> QED
           BY <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8
-      <3>13. CASE op = "Upsert"
-        <4> USE <3>13
+      <3>10. CASE op = "Upsert"
+        <4> USE <3>10
         <4>1. pc' \in [ProcSet -> LineIDs]
           BY Zenon DEF LineIDs, OpToInvocLine
         <4>2. arg' \in [ProcSet -> ArgDomain]
@@ -800,7 +711,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>1, <5>2
         <4>4. pc'[p] = "U1"
           BY Zenon DEF OpToInvocLine
-        <4>5. AddrsOK'
+        <4>5. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -808,19 +719,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>6. BktOK'
+        <4>6. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -831,14 +742,14 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5> USE RemDef, <4>4
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -852,7 +763,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -882,7 +793,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -905,17 +816,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>7. Uniq'
+        <4>7. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>8. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>8. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg'[q].val
@@ -931,13 +842,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg'[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                              /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                 (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY DEF NewBktOK
-          <5>0. ASSUME NEW k \in KeyDomain
+            BY DEF NewBktInv
+          <5>1. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
                        /\ pc[q] \in {"I4", "U4", "R4"} => ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, bucket[q])'
                        /\ ValOfKeyInBktAtAddr(k, newbkt[q]) = ValOfKeyInBktAtAddr(k, newbkt[q])'
-            <6> USE <5>0
+            <6> USE <5>1
             <6>1. pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>2. KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -979,29 +890,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                 BY <7>1, <7>5
             <6> QED
               BY <6>1, <6>2, <6>3, <6>4
-          <5>1. CASE pc'[q] = "I4"
-            <6> USE <5>1
-            <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
-              BY <4>4, Zenon
-            <6> SUFFICES /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
-                         /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
-                         /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
-                                                                   /\ KeyInBktAtAddr(k, bucket[q])' =>
-                                                                      (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-              OBVIOUS
-            <6>1A. pc'[q] = "I4" /\ arg'[q].key \in KeyDomain
-              BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "I4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
-                  /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
-                  /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
-                                                            /\ KeyInBktAtAddr(k, bucket[q]) =>
-                                                               (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
-            <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
-          <5>2. CASE pc'[q] = "U4"
+          <5>2. CASE pc'[q] = "I4"
             <6> USE <5>2
             <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
               BY <4>4, Zenon
@@ -1011,20 +900,42 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                                    /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                       (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
               OBVIOUS
-            <6>1A. pc'[q] = "U4" /\ arg'[q].key \in KeyDomain
+            <6>1. pc'[q] = "I4" /\ arg'[q].key \in KeyDomain
               BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "U4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
+            <6>2. pc[q] = "I4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>2, Zenon DEF NewBktInv
             <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
-          <5>3. CASE pc'[q] = "R4"
+              BY <5>1, <6>2, <6>3, ZenonT(90)
+          <5>3. CASE pc'[q] = "U4"
             <6> USE <5>3
+            <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
+              BY <4>4, Zenon
+            <6> SUFFICES /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
+                         /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
+                         /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
+                                                                   /\ KeyInBktAtAddr(k, bucket[q])' =>
+                                                                      (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
+              OBVIOUS
+            <6>1. pc'[q] = "U4" /\ arg'[q].key \in KeyDomain
+              BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
+            <6>2. pc[q] = "U4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
+                  /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
+                  /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
+                                                            /\ KeyInBktAtAddr(k, bucket[q]) =>
+                                                               (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
+              BY <6>2, Zenon DEF NewBktInv
+            <6> QED
+              BY <5>1, <6>2, <6>3, ZenonT(90)
+          <5>4. CASE pc'[q] = "R4"
+            <6> USE <5>4
             <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
               BY <4>4, Zenon
             <6> SUFFICES /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])'
@@ -1032,23 +943,23 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                                    /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                       (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
               OBVIOUS
-            <6>1A. pc'[q] = "R4" /\ arg'[q].key \in KeyDomain
+            <6>1. pc'[q] = "R4" /\ arg'[q].key \in KeyDomain
               BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "R4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])
+            <6>2. pc[q] = "R4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>2, Zenon DEF NewBktInv
             <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
+              BY <5>1, <6>2, <6>3, ZenonT(90)
           <5> QED
-            BY <5>1, <5>2, <5>3
+            BY <5>2, <5>3, <5>4
         <4> QED
           BY <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8
-      <3>14. CASE op = "Remove"
-        <4> USE <3>14
+      <3>11. CASE op = "Remove"
+        <4> USE <3>11
         <4>1. pc' \in [ProcSet -> LineIDs]
           BY Zenon DEF LineIDs, OpToInvocLine
         <4>2. arg' \in [ProcSet -> ArgDomain]
@@ -1071,7 +982,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>1, <5>2
         <4>4. pc'[p] = "R1"
           BY Zenon DEF OpToInvocLine
-        <4>5. AddrsOK'
+        <4>5. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -1079,19 +990,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY <4>4 DEF AddrsOK
+            BY <4>4 DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>6. BktOK'
+        <4>6. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -1102,14 +1013,14 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5> USE RemDef, <4>4
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -1123,7 +1034,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -1153,7 +1064,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -1176,17 +1087,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>7. Uniq'
+        <4>7. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>8. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>8. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg'[q].val
@@ -1202,13 +1113,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg'[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                              /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                 (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY DEF NewBktOK
-          <5>0. ASSUME NEW k \in KeyDomain
+            BY DEF NewBktInv
+          <5>1. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
                        /\ pc[q] \in {"I4", "U4", "R4"} => ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, bucket[q])'
                        /\ ValOfKeyInBktAtAddr(k, newbkt[q]) = ValOfKeyInBktAtAddr(k, newbkt[q])'
-            <6> USE <5>0
+            <6> USE <5>1
             <6>1. pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>2. KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -1250,29 +1161,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                 BY <7>1, <7>5
             <6> QED
               BY <6>1, <6>2, <6>3, <6>4
-          <5>1. CASE pc'[q] = "I4"
-            <6> USE <5>1
-            <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
-              BY <4>4, Zenon
-            <6> SUFFICES /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
-                         /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
-                         /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
-                                                                   /\ KeyInBktAtAddr(k, bucket[q])' =>
-                                                                      (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-              OBVIOUS
-            <6>1A. pc'[q] = "I4" /\ arg'[q].key \in KeyDomain
-              BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "I4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
-                  /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
-                  /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
-                                                            /\ KeyInBktAtAddr(k, bucket[q]) =>
-                                                               (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
-            <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
-          <5>2. CASE pc'[q] = "U4"
+          <5>2. CASE pc'[q] = "I4"
             <6> USE <5>2
             <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
               BY <4>4, Zenon
@@ -1282,20 +1171,42 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                                    /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                       (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
               OBVIOUS
-            <6>1A. pc'[q] = "U4" /\ arg'[q].key \in KeyDomain
+            <6>1. pc'[q] = "I4" /\ arg'[q].key \in KeyDomain
               BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "U4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
+            <6>2. pc[q] = "I4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>2, Zenon DEF NewBktInv
             <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
-          <5>3. CASE pc'[q] = "R4"
+              BY <5>1, <6>2, <6>3, ZenonT(90)
+          <5>3. CASE pc'[q] = "U4"
             <6> USE <5>3
+            <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
+              BY <4>4, Zenon
+            <6> SUFFICES /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
+                         /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
+                         /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
+                                                                   /\ KeyInBktAtAddr(k, bucket[q])' =>
+                                                                      (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
+              OBVIOUS
+            <6>1. pc'[q] = "U4" /\ arg'[q].key \in KeyDomain
+              BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
+            <6>2. pc[q] = "U4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ KeyInBktAtAddr(arg[q].key, newbkt[q])
+                  /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q]) = arg[q].val
+                  /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
+                                                            /\ KeyInBktAtAddr(k, bucket[q]) =>
+                                                               (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
+              BY <6>2, Zenon DEF NewBktInv
+            <6> QED
+              BY <5>1, <6>2, <6>3, ZenonT(90)
+          <5>4. CASE pc'[q] = "R4"
+            <6> USE <5>4
             <6> arg[q] = arg'[q] /\ pc[q] = pc'[q]
               BY <4>4, Zenon
             <6> SUFFICES /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])'
@@ -1303,60 +1214,58 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                                    /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                       (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
               OBVIOUS
-            <6>1A. pc'[q] = "R4" /\ arg'[q].key \in KeyDomain
+            <6>1. pc'[q] = "R4" /\ arg'[q].key \in KeyDomain
               BY <4>3, Zenon, RemDef DEF ArgsOf, LineIDtoOp
-            <6>1. pc[q] = "R4" /\ arg[q].key \in KeyDomain
-              BY <6>1A, Zenon
-            <6>2. /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])
+            <6>2. pc[q] = "R4" /\ arg[q].key \in KeyDomain
+              BY <6>1, Zenon
+            <6>3. /\ ~KeyInBktAtAddr(arg[q].key, newbkt[q])
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>2, Zenon DEF NewBktInv
             <6> QED
-              BY <5>0, <6>1, <6>2, ZenonT(90)
+              BY <5>1, <6>2, <6>3, ZenonT(90)
           <5> QED
-            BY <5>1, <5>2, <5>3
+            BY <5>2, <5>3, <5>4
         <4> QED
           BY <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8
       <3> QED
-        BY <3>11, <3>12, <3>13, <3>14 DEF OpNames
-    <2>2. ASSUME NEW p \in ProcSet, 
-                 IntLine(p)
-          PROVE  Inv'
-      <3> SUFFICES ASSUME NEW Line \in IntLines(p), Line
+        BY <3>8, <3>9, <3>10, <3>11 DEF OpNames
+    <2>2. CASE IntermAction
+      <3> SUFFICES ASSUME NEW p \in ProcSet,
+                          NEW LineAction \in IntLines(p),
+                          LineAction
                    PROVE  Inv'
-        BY <2>2, Zenon DEF IntLine
-      <3>1. CASE Line = F1(p)
-        <4> USE <3>1 DEF F1
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+        BY <2>2, Zenon DEF IntermAction
+      <3>1. CASE LineAction = F1(p)
+        <4> USE <3>1 DEF F1, Inv, TypeOK, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           <5>1. arg[p].key \in KeyDomain
             BY RemDef, Zenon DEF LineIDtoOp, ArgsOf
           <5> QED
             BY <5>1, HashDef, Zenon
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -1364,37 +1273,37 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
             <6> SUFFICES ASSUME NEW q \in ProcSet,
                                 p_1 # q
                          PROVE  newbkt[p_1] # bucket'[q]
-              BY ZenonT(30) DEF AddrsOK
+              BY ZenonT(30) DEF AddrsInv
             <6>1. CASE p = q
               <7>1. arg[p] \in [key: KeyDomain]
                 BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
               <7>2. Hash[arg[p].key] \in 1..N
                 BY <7>1, HashDef
               <7>3. A[Hash[arg[p].key]] # newbkt[p_1]
-                BY <7>2, Zenon DEF AddrsOK
+                BY <7>2, Zenon DEF AddrsInv
               <7>4. bucket'[q] # newbkt[p_1]
                 BY <6>1, <7>3, Zenon
               <7> QED
                 BY <7>4
             <6>2. CASE p # q
-              BY <6>2, Zenon DEF AddrsOK
+              BY <6>2, Zenon DEF AddrsInv
             <6> QED
               BY <6>1, <6>2
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -1405,13 +1314,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -1425,7 +1334,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -1455,7 +1364,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -1478,17 +1387,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -1504,7 +1413,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -1557,7 +1466,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -1575,7 +1484,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -1591,17 +1500,15 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>2. CASE Line = F2(p)
-        <4> USE <3>2 DEF F2
-        <4>1. PTypeOK'
-          BY NextPTypeOK
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>2. CASE LineAction = F2(p)
+        <4> USE <3>2 DEF F2, Inv, TypeOK, vars
         <4>2. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
         <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
@@ -1646,7 +1553,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>12. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -1654,19 +1561,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>13. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -1677,13 +1584,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -1697,7 +1604,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -1727,7 +1634,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -1750,17 +1657,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>14. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>15. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -1776,7 +1683,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -1829,7 +1736,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -1847,7 +1754,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -1863,44 +1770,42 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>3. CASE Line = I1(p)
-        <4> USE <3>3 DEF I1
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
+      <3>3. CASE LineAction = I1(p)
+        <4> USE <3>3 DEF I1, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           <5>1. arg[p].key \in KeyDomain
             BY RemDef, Zenon DEF LineIDtoOp, ArgsOf
           <5> QED
             BY <5>1, HashDef, Zenon
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -1908,37 +1813,37 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
             <6> SUFFICES ASSUME NEW q \in ProcSet,
                                 p_1 # q
                          PROVE  newbkt[p_1] # bucket'[q]
-              BY ZenonT(30) DEF AddrsOK
+              BY ZenonT(30) DEF AddrsInv
             <6>1. CASE p = q
               <7>1. arg[p] \in [key: KeyDomain, val: ValDomain]
                 BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
               <7>2. Hash[arg[p].key] \in 1..N
                 BY <7>1, HashDef
               <7>3. A[Hash[arg[p].key]] # newbkt[p_1]
-                BY <7>2, Zenon DEF AddrsOK
+                BY <7>2, Zenon DEF AddrsInv
               <7>4. bucket'[q] # newbkt[p_1]
                 BY <6>1, <7>3, Zenon
               <7> QED
                 BY <7>4
             <6>2. CASE p # q
-              BY <6>2, Zenon DEF AddrsOK
+              BY <6>2, Zenon DEF AddrsInv
             <6> QED
               BY <6>1, <6>2
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -1949,13 +1854,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -1969,7 +1874,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -1999,7 +1904,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -2022,17 +1927,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -2048,7 +1953,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -2101,7 +2006,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -2119,7 +2024,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -2135,30 +2040,28 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>4. CASE Line = I2(p)
-        <4> USE <3>4 DEF I2
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>4. CASE LineAction = I2(p)
+        <4> USE <3>4 DEF I2, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           <5>1. CASE bucket[p] # NULL /\ KeyInBktAtAddr(arg[p].key, bucket[p])
             <6>1. r' = [r EXCEPT ![p] = ValOfKeyInBktAtAddr(arg[p].key, bucket[p])]
               BY <5>1, Zenon
@@ -2181,16 +2084,16 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>2, Zenon DEF KeyInBktAtAddr
           <5> QED
             BY <5>1, <5>2
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -2198,19 +2101,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -2221,7 +2124,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6>1. CASE p = q
@@ -2233,7 +2136,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                          PROVE  ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               BY <6>1
             <6>2. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>2, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -2247,7 +2150,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -2277,7 +2180,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -2300,17 +2203,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -2326,7 +2229,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -2379,7 +2282,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -2397,7 +2300,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -2413,22 +2316,20 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>5. CASE Line = I3(p)
-        <4> USE <3>5 DEF I3
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>5. CASE LineAction = I3(p)
+        <4> USE <3>5 DEF I3, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           <5>1. CASE bucket[p] = NULL
             <6> USE <5>1
             <6>1. PICK addr \in Addrs : MemLocs' = [MemLocs EXCEPT ![addr] = <<arg[p]>>]
@@ -2457,24 +2358,24 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>2, <6>3
           <5> QED
             BY <5>1, <5>2
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet,
                               pc'[p_1] \in {"I4", "U4", "R4"}
                        PROVE  /\ \A q \in ProcSet : (p_1 # q => /\ newbkt'[p_1] # bucket'[q]
@@ -2482,7 +2383,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                               /\ \A idx \in 1..N  : (A'[idx] # newbkt'[p_1])
                               /\ newbkt'[p_1] # bucket'[p_1]
                               /\ newbkt'[p_1] \in AllocAddrs'
-            BY Zenon DEF AddrsOK
+            BY Zenon DEF AddrsInv
           <5>0. PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                       /\ AllocAddrs' = AllocAddrs \cup {addr}
                                       /\ newbkt' = [newbkt EXCEPT ![p] = addr]
@@ -2506,9 +2407,9 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>4. newbkt'[q] \in AllocAddrs \/ newbkt'[q] = NULL
                 BY <5>1, <7>3, Zenon
               <7>5. newbkt'[p_1] # bucket'[q]
-                BY <5>1, <6>1, <7>2 DEF AddrsOK
+                BY <5>1, <6>1, <7>2 DEF AddrsInv
               <7>6. newbkt'[p_1] # newbkt'[q]
-                BY <5>1, <6>1, <7>4 DEF AddrsOK
+                BY <5>1, <6>1, <7>4 DEF AddrsInv
               <7>7. QED
                 BY <7>5, <7>6
             <6>3. \A idx \in 1..N  : (A'[idx] # newbkt'[p_1])
@@ -2516,7 +2417,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                            PROVE  A'[idx] # newbkt'[p_1]
                 OBVIOUS
               <7>1. A'[idx] \in AllocAddrs \/ A'[idx] = NULL
-                BY <4>3, Zenon
+                BY <4>2, Zenon
               <7> QED
                 BY <6>1, <7>1
             <6>4. newbkt'[p_1] # bucket'[p_1]
@@ -2525,7 +2426,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7> QED
                 BY <6>1, <7>1
             <6>5. newbkt'[p_1] \in AllocAddrs'
-              BY <5>1 DEF AddrsOK
+              BY <5>1 DEF AddrsInv
             <6>6. QED
               BY <6>2, <6>3, <6>4, <6>5
           <5>2. CASE p_1 # p
@@ -2535,34 +2436,34 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                   p_1 # q
                            PROVE  /\ newbkt'[p_1] # bucket'[q]
                                   /\ newbkt'[p_1] # newbkt'[q]
-                BY <5>2 DEF AddrsOK
+                BY <5>2 DEF AddrsInv
               <7>1. newbkt'[p_1] # bucket'[q]
-                BY <5>2 DEF AddrsOK
+                BY <5>2 DEF AddrsInv
               <7>2. newbkt'[p_1] # newbkt'[q]
                 <8>1. CASE q = p
                   <9>1. newbkt'[q] \notin AllocAddrs
                     BY <8>1, Zenon
                   <9>2. newbkt'[p_1] \in AllocAddrs
-                    BY <5>2, Zenon DEF AddrsOK
+                    BY <5>2, Zenon DEF AddrsInv
                   <9> QED  
                     BY <9>1, <9>2
                 <8>2. CASE q # p
-                  BY <5>2, <8>2 DEF AddrsOK
+                  BY <5>2, <8>2 DEF AddrsInv
                 <8> QED
                   BY <8>1, <8>2
               <7>3. QED
                 BY <7>1, <7>2
             <6>2. \A idx \in 1..N  : (A'[idx] # newbkt'[p_1])
-              BY <5>2 DEF AddrsOK
+              BY <5>2 DEF AddrsInv
             <6>3. newbkt'[p_1] # bucket'[p_1]
-              BY <5>2 DEF AddrsOK
+              BY <5>2 DEF AddrsInv
             <6>4. newbkt'[p_1] \in AllocAddrs'
-              BY <5>2 DEF AddrsOK
+              BY <5>2 DEF AddrsInv
             <6>5. QED
               BY <6>1, <6>2, <6>3, <6>4
           <5> QED
             BY <5>1, <5>2
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -2573,7 +2474,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>0. PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                       /\ AllocAddrs' = AllocAddrs \cup {addr}
                                       /\ newbkt' = [newbkt EXCEPT ![p] = addr]
@@ -2608,13 +2509,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7> QED
                 BY <7>1, <7>2
             <6>2. CASE p = q
-              BY <6>2, <6>1, Zenon DEF BktOK
+              BY <6>2, <6>1, Zenon DEF BktInv
             <6> USE <5>1
             <6> SUFFICES ASSUME p # q
                          PROVE  ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               BY <6>2
             <6>3. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>3, <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -2628,7 +2529,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               <7>1. CASE bucket[q] = NULL
                 <8> USE <7>1
@@ -2690,7 +2591,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. MemLocs[bucket[q]] = MemLocs'[bucket'[q]]
               <7>1. bucket[q] = bucket'[q]
                 BY Zenon
@@ -2724,14 +2625,14 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>3, <6>8, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW a \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[a],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5>1. PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                       /\ AllocAddrs' = AllocAddrs \cup {addr}
                                       /\ IF bucket[p] = NULL
@@ -2741,7 +2642,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
           <5>2. \A ad \in Addrs : ad # addr => MemLocs'[ad] = MemLocs[ad]
             BY <5>1, Zenon
           <5>3. CASE a # addr
-            BY <5>1, <5>2, <5>3, Zenon DEF Uniq
+            BY <5>1, <5>2, <5>3, Zenon DEF UniqInv
           <5> SUFFICES ASSUME a = addr
                        PROVE  j1 = j2
             BY <5>3
@@ -2767,7 +2668,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>1. bucket_arr[j1] = arg[p]
                 BY <6>1, <6>2, <6>3, <6>6, AppendProperties
               <7>2. \A index \in 1..Len(MemLocs[bucket[p]]) : MemLocs[bucket[p]][index].key # arg[p].key
-                BY Zenon, <5>5 DEF KeyInBktAtAddr, BktOK
+                BY Zenon, <5>5 DEF KeyInBktAtAddr, BktInv
               <7>3. \A index \in 1..Len(MemLocs[bucket[p]]) : bucket_arr[index].key # arg[p].key
                 BY <6>5, <7>2, Zenon
               <7>4. j2 \notin 1..Len(MemLocs[bucket[p]])
@@ -2780,7 +2681,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>1. bucket_arr[j2] = arg[p]
                 BY <6>1, <6>2, <6>3, <6>7, AppendProperties
               <7>2. \A index \in 1..Len(MemLocs[bucket[p]]) : MemLocs[bucket[p]][index].key # arg[p].key
-                BY Zenon, <5>5 DEF KeyInBktAtAddr, BktOK
+                BY Zenon, <5>5 DEF KeyInBktAtAddr, BktInv
               <7>3. \A index \in 1..Len(MemLocs[bucket[p]]) : bucket_arr[index].key # arg[p].key
                 BY <6>5, <7>2, Zenon
               <7>4. j1 \notin 1..Len(MemLocs[bucket[p]])
@@ -2795,12 +2696,12 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>2. bucket[p] \in AllocAddrs
                 BY <5>5
               <7> QED
-                BY <6>5, <7>1, <7>2 DEF Uniq
+                BY <6>5, <7>1, <7>2 DEF UniqInv
             <6> QED
               BY <6>6, <6>7, <6>8
           <5> QED
             BY <5>4, <5>5
-        <4>15. NewBktOK'
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -2816,7 +2717,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5> PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                     /\ AllocAddrs' = AllocAddrs \cup {addr}
                                     /\ newbkt' = [newbkt EXCEPT ![p] = addr]
@@ -2833,7 +2734,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                        /\ KeyInBktAtAddr(k, newbkt[q]) => (ValOfKeyInBktAtAddr(k, newbkt[q]) = ValOfKeyInBktAtAddr(k, newbkt[q])')
             <6> USE <5>B
             <6>1. bucket[q] = bucket'[q] /\ newbkt'[q] = newbkt[q] /\ newbkt[q] \in AllocAddrs
-              BY NULLDef, Zenon DEF AddrsOK
+              BY NULLDef, Zenon DEF AddrsInv
             <6>2. MemLocs[newbkt[q]] = MemLocs'[newbkt'[q]]
               BY <5>A, <6>1, Zenon
             <6>3. KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'  
@@ -2978,7 +2879,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   <9>5. Len(MemLocs[bucket[q]]) \in Nat /\ Len(bkt_arr) \in 1..Len(bkt_arr) /\ Len(bkt_arr) = Len(MemLocs[bucket[q]])+1
                     BY <9>2, <9>3, AppendProperties, LenProperties
                   <9>6. \A ind \in 1..Len(MemLocs[bucket[q]]) : MemLocs[bucket[q]][ind].key # arg[q].key
-                    BY Zenon DEF BktOK, KeyInBktAtAddr
+                    BY Zenon DEF BktInv, KeyInBktAtAddr
                   <9>7. index = Len(bkt_arr)
                     BY <9>5, <9>6, Z3T(90)
                   <9>8. bkt_arr[index] = arg[q]
@@ -3034,11 +2935,11 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                     <10>14. bkt_arr[Len(bkt_arr)].key # k
                       BY <10>7
                     <10>15. \A ind \in 1..Len(MemLocs[bucket[q]]) : MemLocs[bucket[q]][ind].key = MemLocs[bucket[q]][index].key => ind = index
-                      BY Zenon, <10>1 DEF Uniq
+                      BY Zenon, <10>1 DEF UniqInv
                     <10>16. \A ind \in 1..Len(MemLocs[bucket[q]]) : ind # index => MemLocs[bucket[q]][ind].key # k
                       BY <10>15, Zenon
                     <10>17. \A ind \in 1..Len(bkt_arr) : ind # index => bkt_arr[ind].key # k
-                      BY <10>16, <10>14, <10>7, Z3T(30)
+                      BY <10>16, <10>14, <10>7, Z3T(1200)
                     <10>18. \E ind \in 1..Len(bkt_arr) : bkt_arr[ind].key = k
                       BY <10>7
                     <10>19. ValOfKeyInBktAtAddr(k, newbkt[q])' = bkt_arr[index].val
@@ -3082,7 +2983,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                     /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                               /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                  (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-                BY Zenon DEF NewBktOK
+                BY Zenon DEF NewBktInv
               <7>2. arg[q].key \in KeyDomain
                 BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
               <7> QED
@@ -3096,7 +2997,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY Zenon DEF NewBktOK
+              BY Zenon DEF NewBktInv
             <6>2. arg[q].key \in KeyDomain
               BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
             <6> QED
@@ -3107,7 +3008,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY Zenon DEF NewBktOK
+              BY Zenon DEF NewBktInv
             <6>2. arg[q].key \in KeyDomain
               BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
             <6> QED
@@ -3115,14 +3016,12 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>6. CASE Line = I4(p)
-        <4> USE <3>6 DEF I4
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>6. CASE LineAction = I4(p)
+        <4> USE <3>6 DEF I4, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           <5>1. CASE A[Hash[arg[p].key]] = bucket[p]
             <6> SUFFICES newbkt[p] \in AllocAddrs \union {NULL}
               BY <5>1, Isa
@@ -3132,26 +3031,26 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>2
           <5> QED
             BY <5>1, <5>2
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -3159,19 +3058,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -3182,13 +3081,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -3202,7 +3101,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -3232,7 +3131,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -3255,17 +3154,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -3281,7 +3180,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -3334,7 +3233,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -3352,7 +3251,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -3368,44 +3267,42 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>7. CASE Line = U1(p)
-        <4> USE <3>7 DEF U1
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>7. CASE LineAction = U1(p)
+        <4> USE <3>7 DEF U1, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           <5>1. arg[p].key \in KeyDomain
             BY RemDef, Zenon DEF LineIDtoOp, ArgsOf
           <5> QED
             BY <5>1, HashDef, Zenon
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -3413,37 +3310,37 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
             <6> SUFFICES ASSUME NEW q \in ProcSet,
                                 p_1 # q
                          PROVE  newbkt[p_1] # bucket'[q]
-              BY ZenonT(30) DEF AddrsOK
+              BY ZenonT(30) DEF AddrsInv
             <6>1. CASE p = q
               <7>1. arg[p] \in [key: KeyDomain, val: ValDomain]
                 BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
               <7>2. Hash[arg[p].key] \in 1..N
                 BY <7>1, HashDef
               <7>3. A[Hash[arg[p].key]] # newbkt[p_1]
-                BY <7>2, Zenon DEF AddrsOK
+                BY <7>2, Zenon DEF AddrsInv
               <7>4. bucket'[q] # newbkt[p_1]
                 BY <6>1, <7>3, Zenon
               <7> QED
                 BY <7>4
             <6>2. CASE p # q
-              BY <6>2, Zenon DEF AddrsOK
+              BY <6>2, Zenon DEF AddrsInv
             <6> QED
               BY <6>1, <6>2
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -3454,13 +3351,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -3474,7 +3371,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -3504,7 +3401,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -3527,17 +3424,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -3553,7 +3450,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -3606,7 +3503,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -3624,7 +3521,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -3640,30 +3537,28 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>8. CASE Line = U2(p)
-        <4> USE <3>8 DEF U2
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>8. CASE LineAction = U2(p)
+        <4> USE <3>8 DEF U2, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           <5>1. CASE bucket[p] # NULL /\ KeyInBktAtAddr(arg[p].key, bucket[p])
             <6>1. r' = [r EXCEPT ![p] = ValOfKeyInBktAtAddr(arg[p].key, bucket[p])]
               BY <5>1, Zenon
@@ -3686,16 +3581,16 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>2, Zenon DEF KeyInBktAtAddr
           <5> QED
             BY <5>1, <5>2
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -3703,19 +3598,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -3726,13 +3621,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -3799,7 +3694,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>3. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>4. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -3829,7 +3724,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -3852,17 +3747,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -3878,7 +3773,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -3931,7 +3826,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -3949,7 +3844,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -3965,22 +3860,20 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>9. CASE Line = U3(p)
-        <4> USE <3>9 DEF U3
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>9. CASE LineAction = U3(p)
+        <4> USE <3>9 DEF U3, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           <5>0. PICK addr \in Addrs : 
             /\ addr \notin AllocAddrs
             /\ AllocAddrs' = AllocAddrs \cup {addr}
@@ -4039,31 +3932,31 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY DEF IdxInBktAtAddr
             <6>5. \E index \in 1..Len(MemLocs[bucket[p]]) : MemLocs[bucket[p]][index].key = arg[p].key
               <7>1. KeyInBktAtAddr(arg[p].key, bucket[p])
-                BY Zenon DEF BktOK, U3
+                BY Zenon DEF BktInv, U3
               <7> QED
                 BY <7>1 DEF KeyInBktAtAddr
             <6> QED
               BY <6>2, <6>3, <6>4, <6>5, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet,
                               pc'[p_1] \in {"I4", "U4", "R4"}
                        PROVE  /\ \A q \in ProcSet : (p_1 # q => /\ newbkt'[p_1] # bucket'[q]
@@ -4071,7 +3964,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                               /\ \A idx \in 1..N  : (A'[idx] # newbkt'[p_1])
                               /\ newbkt'[p_1] # bucket'[p_1]
                               /\ newbkt'[p_1] \in AllocAddrs'
-            BY Zenon DEF AddrsOK
+            BY Zenon DEF AddrsInv
           <5>0. PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                       /\ AllocAddrs' = AllocAddrs \cup {addr}
                                       /\ newbkt' = [newbkt EXCEPT ![p] = addr]
@@ -4096,9 +3989,9 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>4. newbkt'[q] \in AllocAddrs \/ newbkt'[q] = NULL
                 BY <5>1, <7>3, Zenon DEF U3
               <7>5. newbkt'[p_1] # bucket'[q]
-                BY <5>1, <6>1, <7>2 DEF AddrsOK
+                BY <5>1, <6>1, <7>2 DEF AddrsInv
               <7>6. newbkt'[p_1] # newbkt'[q]
-                BY <5>1, <6>1, <7>4 DEF AddrsOK
+                BY <5>1, <6>1, <7>4 DEF AddrsInv
               <7>7. QED
                 BY <7>5, <7>6
             <6>3. \A idx \in 1..N  : (A'[idx] # newbkt'[p_1])
@@ -4106,7 +3999,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                            PROVE  A'[idx] # newbkt'[p_1]
                 OBVIOUS
               <7>1. A'[idx] \in AllocAddrs \/ A'[idx] = NULL
-                BY <4>3, Zenon DEF U3
+                BY <4>2, Zenon DEF U3
               <7> QED
                 BY <6>1, <7>1
             <6>4. newbkt'[p_1] # bucket'[p_1]
@@ -4115,7 +4008,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7> QED
                 BY <6>1, <7>1
             <6>5. newbkt'[p_1] \in AllocAddrs'
-              BY <5>1, Zenon DEF AddrsOK, U3
+              BY <5>1, Zenon DEF AddrsInv, U3
             <6>6. QED
               BY <6>2, <6>3, <6>4, <6>5
           <5>2. CASE p_1 # p
@@ -4125,34 +4018,34 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                   p_1 # q
                            PROVE  /\ newbkt'[p_1] # bucket'[q]
                                   /\ newbkt'[p_1] # newbkt'[q]
-                BY <5>2 DEF AddrsOK
+                BY <5>2 DEF AddrsInv
               <7>1. newbkt'[p_1] # bucket'[q]
-                BY <5>2, Zenon DEF AddrsOK, U3
+                BY <5>2, Zenon DEF AddrsInv, U3
               <7>2. newbkt'[p_1] # newbkt'[q]
                 <8>1. CASE q = p
                   <9>1. newbkt'[q] \notin AllocAddrs
                     BY <8>1, Zenon DEF U3
                   <9>2. newbkt'[p_1] \in AllocAddrs
-                    BY <5>2, Zenon DEF AddrsOK, U3
+                    BY <5>2, Zenon DEF AddrsInv, U3
                   <9> QED  
                     BY <9>1, <9>2
                 <8>2. CASE q # p
-                  BY <5>2, <8>2, Zenon DEF AddrsOK, U3
+                  BY <5>2, <8>2, Zenon DEF AddrsInv, U3
                 <8> QED
                   BY <8>1, <8>2
               <7>3. QED
                 BY <7>1, <7>2
             <6>2. \A idx \in 1..N  : (A'[idx] # newbkt'[p_1])
-              BY <5>2, Zenon DEF AddrsOK, U3
+              BY <5>2, Zenon DEF AddrsInv, U3
             <6>3. newbkt'[p_1] # bucket'[p_1]
-              BY <5>2, Zenon DEF AddrsOK, U3
+              BY <5>2, Zenon DEF AddrsInv, U3
             <6>4. newbkt'[p_1] \in AllocAddrs'
-              BY <5>2, Zenon DEF AddrsOK, U3
+              BY <5>2, Zenon DEF AddrsInv, U3
             <6>5. QED
               BY <6>1, <6>2, <6>3, <6>4
           <5> QED
             BY <5>1, <5>2
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -4163,7 +4056,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY Zenon DEF BktOK
+            BY Zenon DEF BktInv
           <5>0. PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                       /\ AllocAddrs' = AllocAddrs \cup {addr}
                                       /\ newbkt' = [newbkt EXCEPT ![p] = addr]
@@ -4202,7 +4095,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>3. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK, U3
+              BY Zenon DEF BktInv, U3
             <6> QED
               BY <6>3, <6>1, Zenon DEF KeyInBktAtAddr, U3
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -4216,7 +4109,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK, U3
+              BY Zenon DEF BktInv, U3
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               <7>1. CASE bucket[q] = NULL
                 <8> USE <7>1
@@ -4278,7 +4171,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK, U3
+              BY Zenon DEF BktInv, U3
             <6>2. MemLocs[bucket[q]] = MemLocs'[bucket'[q]]
               <7>1. bucket[q] = bucket'[q]
                 BY Zenon DEF U3
@@ -4312,14 +4205,14 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>3, <6>8, Zenon DEF U3
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW a \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[a],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5>1. PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                       /\ AllocAddrs' = AllocAddrs \cup {addr}
                                       /\ CASE bucket[p] = NULL                -> MemLocs' = [MemLocs EXCEPT ![addr] = <<arg[p]>>]
@@ -4330,7 +4223,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
           <5>2. \A ad \in Addrs : ad # addr => MemLocs'[ad] = MemLocs[ad]
             BY <5>1, Zenon
           <5>3. CASE a # addr
-            BY <5>1, <5>2, <5>3, Zenon DEF Uniq
+            BY <5>1, <5>2, <5>3, Zenon DEF UniqInv
           <5> SUFFICES ASSUME a = addr
                        PROVE  j1 = j2
             BY <5>3, Zenon
@@ -4358,7 +4251,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>1. bucket_arr[j1] = arg[p]
                 BY <6>1, <6>2, <6>3, <6>7, AppendProperties
               <7>2. \A index \in 1..Len(MemLocs[bucket[p]]) : MemLocs[bucket[p]][index].key # arg[p].key
-                BY Zenon, <5>5 DEF KeyInBktAtAddr, BktOK, U3
+                BY Zenon, <5>5 DEF KeyInBktAtAddr, BktInv, U3
               <7>3. \A index \in 1..Len(MemLocs[bucket[p]]) : bucket_arr[index].key # arg[p].key
                 BY <6>6, <7>2, Zenon
               <7>4. j2 \notin 1..Len(MemLocs[bucket[p]])
@@ -4371,7 +4264,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>1. bucket_arr[j2] = arg[p]
                 BY <6>1, <6>2, <6>3, <6>8, AppendProperties
               <7>2. \A index \in 1..Len(MemLocs[bucket[p]]) : MemLocs[bucket[p]][index].key # arg[p].key
-                BY Zenon, <5>5 DEF KeyInBktAtAddr, BktOK, U3
+                BY Zenon, <5>5 DEF KeyInBktAtAddr, BktInv, U3
               <7>3. \A index \in 1..Len(MemLocs[bucket[p]]) : bucket_arr[index].key # arg[p].key
                 BY <6>6, <7>2, Zenon
               <7>4. j1 \notin 1..Len(MemLocs[bucket[p]])
@@ -4386,7 +4279,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>2. bucket[p] \in AllocAddrs
                 BY <5>5
               <7> QED
-                BY <6>6, <7>1, <7>2 DEF Uniq
+                BY <6>6, <7>1, <7>2 DEF UniqInv
             <6> QED
               BY <6>7, <6>8, <6>9
           <5>6. CASE bucket[p] # NULL /\ r[p] # NULL
@@ -4407,7 +4300,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY DEF IdxInBktAtAddr
             <6>7. \E index \in 1..Len(MemLocs[bucket[p]]) : MemLocs[bucket[p]][index].key = arg[p].key
               <7>1. KeyInBktAtAddr(arg[p].key, bucket[p])
-                BY <5>6, Zenon DEF BktOK, U3
+                BY <5>6, Zenon DEF BktInv, U3
               <7> QED
                 BY <7>1 DEF KeyInBktAtAddr
             <6>8. CASE j1 = idx
@@ -4426,7 +4319,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>6. MemLocs[bucket[p]][j1].key = MemLocs[bucket[p]][j2].key
                 BY <7>4, <7>5
               <7>7. j1 = j2
-                BY <6>4, <7>1, <7>6 DEF Uniq
+                BY <6>4, <7>1, <7>6 DEF UniqInv
               <7> QED
                 BY <6>8, <7>7
             <6>9. CASE j2 = idx
@@ -4445,7 +4338,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>6. MemLocs[bucket[p]][j2].key = MemLocs[bucket[p]][j1].key
                 BY <7>4, <7>5
               <7>7. j1 = j2
-                BY <6>4, <7>1, <7>6 DEF Uniq
+                BY <6>4, <7>1, <7>6 DEF UniqInv
               <7> QED
                 BY <6>9, <7>7
             <6>10. CASE j1 # idx /\ j2 # idx
@@ -4456,12 +4349,12 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>3. MemLocs[bucket[p]][j1].key = MemLocs[bucket[p]][j2].key
                 BY <7>2
               <7> QED
-                BY <6>4, <7>1, <7>3 DEF Uniq
+                BY <6>4, <7>1, <7>3 DEF UniqInv
             <6> QED
               BY <6>8, <6>9, <6>10
           <5> QED
             BY <5>4, <5>5, <5>6, Zenon
-        <4>15. NewBktOK'
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -4477,7 +4370,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5> PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                     /\ AllocAddrs' = AllocAddrs \cup {addr}
                                     /\ newbkt' = [newbkt EXCEPT ![p] = addr]
@@ -4500,7 +4393,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                        /\ KeyInBktAtAddr(k, newbkt[q]) => (ValOfKeyInBktAtAddr(k, newbkt[q]) = ValOfKeyInBktAtAddr(k, newbkt[q])')
             <6> USE <5>B
             <6>1. bucket[q] = bucket'[q] /\ newbkt'[q] = newbkt[q] /\ newbkt[q] \in AllocAddrs
-              BY NULLDef, Zenon DEF AddrsOK
+              BY NULLDef, Zenon DEF AddrsInv
             <6>2. MemLocs[newbkt[q]] = MemLocs'[newbkt'[q]]
               BY <5>A, <6>1, Zenon
             <6>3. KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'  
@@ -4549,7 +4442,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY Zenon DEF NewBktOK
+              BY Zenon DEF NewBktInv
             <6>2. arg[q].key \in KeyDomain
               BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
             <6> QED
@@ -4662,7 +4555,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   <9>5. Len(MemLocs[bucket[q]]) \in Nat /\ Len(bkt_arr) \in 1..Len(bkt_arr) /\ Len(bkt_arr) = Len(MemLocs[bucket[q]])+1
                     BY <9>2, <9>3, AppendProperties, LenProperties
                   <9>6. \A ind \in 1..Len(MemLocs[bucket[q]]) : MemLocs[bucket[q]][ind].key # arg[q].key
-                    BY Zenon DEF BktOK, KeyInBktAtAddr
+                    BY Zenon DEF BktInv, KeyInBktAtAddr
                   <9>7. index = Len(bkt_arr)
                     BY <9>5, <9>6, Z3T(90)
                   <9>8. bkt_arr[index] = arg[q]
@@ -4718,11 +4611,11 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                     <10>14. bkt_arr[Len(bkt_arr)].key # k
                       BY <10>7
                     <10>15. \A ind \in 1..Len(MemLocs[bucket[q]]) : MemLocs[bucket[q]][ind].key = MemLocs[bucket[q]][index].key => ind = index
-                      BY Zenon, <10>1 DEF Uniq
+                      BY Zenon, <10>1 DEF UniqInv
                     <10>16. \A ind \in 1..Len(MemLocs[bucket[q]]) : ind # index => MemLocs[bucket[q]][ind].key # k
                       BY <10>15, Zenon
                     <10>17. \A ind \in 1..Len(bkt_arr) : ind # index => bkt_arr[ind].key # k
-                      BY <10>16, <10>14, <10>7, Z3T(30)
+                      BY <10>16, <10>14, <10>7, Z3T(1200)
                     <10>18. \E ind \in 1..Len(bkt_arr) : bkt_arr[ind].key = k
                       BY <10>7
                     <10>19. ValOfKeyInBktAtAddr(k, newbkt[q])' = bkt_arr[index].val
@@ -4769,13 +4662,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                 <8> /\ bucket[p] # NULL
                     /\ bucket[p] \in AllocAddrs
                     /\ \E index \in 1..Len(old_arr) : old_arr[index].key = arg[p].key
-                  BY Zenon DEF BktOK, KeyInBktAtAddr
+                  BY Zenon DEF BktInv, KeyInBktAtAddr
                 <8> PICK index \in 1..Len(old_arr) : old_arr[index].key = arg[p].key
                   OBVIOUS
                 <8> idx = index
                   OBVIOUS
                 <8>1. \A ind \in 1..Len(old_arr) : old_arr[ind].key = old_arr[index].key => ind = index
-                  BY DEF Uniq
+                  BY DEF UniqInv
                 <8>2. \A ind \in 1..Len(old_arr) : ind # index => old_arr[ind].key # arg[p].key
                   BY <8>1
                 <8>3. newbkt'[q] = addr /\ bkt_arr = [old_arr EXCEPT ![idx] = arg[p]] /\ arg = arg'
@@ -4831,7 +4724,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                     <10>14. \E id \in 1..Len(bkt_arr) : bkt_arr[id].key = k
                       BY <10>3
                     <10>15. \A id \in 1..Len(bkt_arr) : bkt_arr[id].key = bkt_arr[ind].key => id = ind
-                      BY <4>14 DEF Uniq
+                      BY <4>13 DEF UniqInv
                     <10>16. \A id \in 1..Len(bkt_arr) : bkt_arr[id].key = k => id = ind
                       BY <10>3, <10>15
                     <10>17. ind = CHOOSE id \in 1..Len(bkt_arr) : bkt_arr[id].key = k
@@ -4873,7 +4766,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                     /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                               /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                  (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-                BY Zenon DEF NewBktOK
+                BY Zenon DEF NewBktInv
               <7>2. arg[q].key \in KeyDomain
                 BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
               <7> QED
@@ -4886,7 +4779,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY Zenon DEF NewBktOK
+              BY Zenon DEF NewBktInv
             <6>2. arg[q].key \in KeyDomain
               BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
             <6> QED
@@ -4894,14 +4787,12 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>10. CASE Line = U4(p)
-        <4> USE <3>10 DEF U4
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>10. CASE LineAction = U4(p)
+        <4> USE <3>10 DEF U4, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           <5>1. CASE A[Hash[arg[p].key]] = bucket[p]
             <6> SUFFICES newbkt[p] \in AllocAddrs \union {NULL}
               BY <5>1, Isa
@@ -4911,26 +4802,26 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>2
           <5> QED
             BY <5>1, <5>2
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -4938,19 +4829,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -4961,13 +4852,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -4981,7 +4872,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -5011,7 +4902,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -5034,17 +4925,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -5060,7 +4951,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -5113,7 +5004,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -5131,7 +5022,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -5147,44 +5038,42 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>11. CASE Line = R1(p)
-        <4> USE <3>11 DEF R1
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>11. CASE LineAction = R1(p)
+        <4> USE <3>11 DEF R1, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           <5>1. arg[p].key \in KeyDomain
             BY RemDef, Zenon DEF LineIDtoOp, ArgsOf
           <5> QED
             BY <5>1, HashDef, Zenon
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -5192,37 +5081,37 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
             <6> SUFFICES ASSUME NEW q \in ProcSet,
                                 p_1 # q
                          PROVE  newbkt[p_1] # bucket'[q]
-              BY ZenonT(30) DEF AddrsOK
+              BY ZenonT(30) DEF AddrsInv
             <6>1. CASE p = q
               <7>1. arg[p] \in [key: KeyDomain]
                 BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
               <7>2. Hash[arg[p].key] \in 1..N
                 BY <7>1, HashDef
               <7>3. A[Hash[arg[p].key]] # newbkt[p_1]
-                BY <7>2, Zenon DEF AddrsOK
+                BY <7>2, Zenon DEF AddrsInv
               <7>4. bucket'[q] # newbkt[p_1]
                 BY <6>1, <7>3, Zenon
               <7> QED
                 BY <7>4
             <6>2. CASE p # q
-              BY <6>2, Zenon DEF AddrsOK
+              BY <6>2, Zenon DEF AddrsInv
             <6> QED
               BY <6>1, <6>2
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -5233,13 +5122,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -5253,7 +5142,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -5283,7 +5172,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -5306,17 +5195,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -5332,7 +5221,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -5385,7 +5274,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -5403,7 +5292,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -5419,30 +5308,28 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>12. CASE Line = R2(p)
-        <4> USE <3>12 DEF R2
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>12. CASE LineAction = R2(p)
+        <4> USE <3>12 DEF R2, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           <5>1. CASE bucket[p] # NULL /\ KeyInBktAtAddr(arg[p].key, bucket[p])
             <6>1. r' = [r EXCEPT ![p] = ValOfKeyInBktAtAddr(arg[p].key, bucket[p])]
               BY <5>1, Zenon
@@ -5465,16 +5352,16 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>2, Zenon DEF KeyInBktAtAddr
           <5> QED
             BY <5>1, <5>2
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(45) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -5482,19 +5369,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -5505,13 +5392,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -5525,7 +5412,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -5601,7 +5488,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -5624,17 +5511,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -5650,7 +5537,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -5703,7 +5590,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -5721,7 +5608,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -5737,22 +5624,20 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>13. CASE Line = R3(p)
-        <4> USE <3>13 DEF R3
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY  <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>13. CASE LineAction = R3(p)
+        <4> USE <3>13 DEF R3, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           BY Zenon
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           <5> DEFINE idx == IdxInBktAtAddr(arg[p].key, bucket[p])
           <5> DEFINE bucket_arr == MemLocs[bucket[p]]
           <5>1. PICK addr \in Addrs : 
@@ -5771,36 +5656,36 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                        /\ \A i \in 1..Len(bucket_arr) : bucket_arr[i] \in [key: KeyDomain, val: ValDomain]
             BY SubSeqProperties
           <5>2. bucket_arr \in Seq([key: KeyDomain, val: ValDomain])
-            BY Zenon, NULLDef DEF BktOK, KeyInBktAtAddr, R3
+            BY Zenon, NULLDef DEF BktInv, KeyInBktAtAddr, R3
           <5>3. \A i \in 1..Len(bucket_arr) : bucket_arr[i] \in [key: KeyDomain, val: ValDomain]
             BY ElementOfSeq, Zenon, <5>2
           <5>4. idx = CHOOSE index \in 1..Len(bucket_arr) : bucket_arr[index].key = arg[p].key
             BY DEF IdxInBktAtAddr
           <5>5. \E index \in 1..Len(bucket_arr) : bucket_arr[index].key = arg[p].key
             <6>1. KeyInBktAtAddr(arg[p].key, bucket[p])
-              BY Zenon DEF BktOK, R3
+              BY Zenon DEF BktInv, R3
             <6> QED
               BY <6>1 DEF KeyInBktAtAddr
           <5> QED
             BY <5>3, <5>4, <5>5
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           BY Zenon
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           BY Zenon
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           BY Zenon
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           BY Zenon
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           BY Zenon
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           BY Zenon
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(45) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet,
                               pc'[p_1] \in {"I4", "U4", "R4"}
                        PROVE  /\ \A q \in ProcSet : (p_1 # q => /\ newbkt'[p_1] # bucket'[q]
@@ -5808,7 +5693,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                               /\ \A idx \in 1..N  : (A'[idx] # newbkt'[p_1])
                               /\ newbkt'[p_1] # bucket'[p_1]
                               /\ newbkt'[p_1] \in AllocAddrs'
-            BY Zenon DEF AddrsOK
+            BY Zenon DEF AddrsInv
           <5>0. PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                       /\ AllocAddrs' = AllocAddrs \cup {addr}
                                       /\ newbkt' = [newbkt EXCEPT ![p] = addr]
@@ -5833,9 +5718,9 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>4. newbkt'[q] \in AllocAddrs \/ newbkt'[q] = NULL
                 BY <5>1, <7>3, Zenon DEF R3
               <7>5. newbkt'[p_1] # bucket'[q]
-                BY <5>1, <6>1, <7>2 DEF AddrsOK
+                BY <5>1, <6>1, <7>2 DEF AddrsInv
               <7>6. newbkt'[p_1] # newbkt'[q]
-                BY <5>1, <6>1, <7>4 DEF AddrsOK
+                BY <5>1, <6>1, <7>4 DEF AddrsInv
               <7>7. QED
                 BY <7>5, <7>6
             <6>3. \A idx \in 1..N  : (A'[idx] # newbkt'[p_1])
@@ -5843,7 +5728,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                            PROVE  A'[idx] # newbkt'[p_1]
                 OBVIOUS
               <7>1. A'[idx] \in AllocAddrs \/ A'[idx] = NULL
-                BY <4>3, Zenon DEF R3
+                BY <4>2, Zenon DEF R3
               <7> QED
                 BY <6>1, <7>1
             <6>4. newbkt'[p_1] # bucket'[p_1]
@@ -5852,7 +5737,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7> QED
                 BY <6>1, <7>1
             <6>5. newbkt'[p_1] \in AllocAddrs'
-              BY <5>1, Zenon DEF AddrsOK, R3
+              BY <5>1, Zenon DEF AddrsInv, R3
             <6>6. QED
               BY <6>2, <6>3, <6>4, <6>5
           <5>2. CASE p_1 # p
@@ -5862,34 +5747,34 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                   p_1 # q
                            PROVE  /\ newbkt'[p_1] # bucket'[q]
                                   /\ newbkt'[p_1] # newbkt'[q]
-                BY <5>2 DEF AddrsOK
+                BY <5>2 DEF AddrsInv
               <7>1. newbkt'[p_1] # bucket'[q]
-                BY <5>2, Zenon DEF AddrsOK, R3
+                BY <5>2, Zenon DEF AddrsInv, R3
               <7>2. newbkt'[p_1] # newbkt'[q]
                 <8>1. CASE q = p
                   <9>1. newbkt'[q] \notin AllocAddrs
                     BY <8>1, Zenon DEF R3
                   <9>2. newbkt'[p_1] \in AllocAddrs
-                    BY <5>2, Zenon DEF AddrsOK, R3
+                    BY <5>2, Zenon DEF AddrsInv, R3
                   <9> QED  
                     BY <9>1, <9>2
                 <8>2. CASE q # p
-                  BY <5>2, <8>2, Zenon DEF AddrsOK, R3
+                  BY <5>2, <8>2, Zenon DEF AddrsInv, R3
                 <8> QED
                   BY <8>1, <8>2
               <7>3. QED
                 BY <7>1, <7>2
             <6>2. \A idx \in 1..N  : (A'[idx] # newbkt'[p_1])
-              BY <5>2, Zenon DEF AddrsOK, R3
+              BY <5>2, Zenon DEF AddrsInv, R3
             <6>3. newbkt'[p_1] # bucket'[p_1]
-              BY <5>2, Zenon DEF AddrsOK, R3
+              BY <5>2, Zenon DEF AddrsInv, R3
             <6>4. newbkt'[p_1] \in AllocAddrs'
-              BY <5>2, Zenon DEF AddrsOK, R3
+              BY <5>2, Zenon DEF AddrsInv, R3
             <6>5. QED
               BY <6>1, <6>2, <6>3, <6>4
           <5> QED
             BY <5>1, <5>2
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -5900,7 +5785,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>0. PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                       /\ AllocAddrs' = AllocAddrs \cup {addr}
                                       /\ newbkt' = [newbkt EXCEPT ![p] = addr]
@@ -5939,7 +5824,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>3. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK, R3
+              BY Zenon DEF BktInv, R3
             <6> QED
               BY <6>3, <6>1, Zenon DEF KeyInBktAtAddr, R3
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -5953,7 +5838,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK, R3
+              BY Zenon DEF BktInv, R3
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               <7>1. CASE bucket[q] = NULL
                 <8> USE <7>1
@@ -6015,7 +5900,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK, R3
+              BY Zenon DEF BktInv, R3
             <6>2. MemLocs[bucket[q]] = MemLocs'[bucket'[q]]
               <7>1. bucket[q] = bucket'[q]
                 BY Zenon DEF R3
@@ -6049,14 +5934,14 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>3, <6>8, Zenon DEF R3
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW a \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[a],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> idx == IdxInBktAtAddr(arg[p].key, bucket[p])
           <5>1. PICK addr \in Addrs : /\ addr \notin AllocAddrs
                                       /\ AllocAddrs' = AllocAddrs \cup {addr}
@@ -6065,7 +5950,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
           <5>2. \A ad \in Addrs : ad # addr => MemLocs'[ad] = MemLocs[ad]
             BY <5>1, Zenon
           <5>3. CASE a # addr
-            BY <5>1, <5>2, <5>3, Zenon DEF Uniq
+            BY <5>1, <5>2, <5>3, Zenon DEF UniqInv
           <5> SUFFICES ASSUME a = addr
                        PROVE  j1 = j2
             BY <5>3
@@ -6073,11 +5958,11 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY DEF IdxInBktAtAddr
           <5>5. \E index \in 1..Len(MemLocs[bucket[p]]) : MemLocs[bucket[p]][index].key = arg[p].key
             <6>1. KeyInBktAtAddr(arg[p].key, bucket[p])
-              BY Zenon DEF BktOK, R3
+              BY Zenon DEF BktInv, R3
             <6> QED
               BY <6>1 DEF KeyInBktAtAddr
           <5>6. bucket[p] # NULL
-            BY Zenon DEF BktOK, KeyInBktAtAddr, R3
+            BY Zenon DEF BktInv, KeyInBktAtAddr, R3
           <5>7. MemLocs[bucket[p]] \in Seq([key: KeyDomain, val: ValDomain])
             BY <5>6, Zenon
           <5>8. \A i \in 1..Len(MemLocs[bucket[p]]) : MemLocs[bucket[p]][i] \in [key: KeyDomain, val: ValDomain]
@@ -6137,7 +6022,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>1, <5>18, Zenon
           <5>25. CASE j1 <= idx-1 /\ j2 <= idx-1
             <6>1. (j1 \in 1..Len(barr) /\ j2 \in 1..Len(barr)) => (barr[j1].key = barr[j2].key => j1 = j2)
-              BY <5>6, Zenon DEF Uniq
+              BY <5>6, Zenon DEF UniqInv
             <6>2. barr[j1].key = barr[j2].key => j1 = j2
               BY <6>1, <5>24
             <6>3. barr[j1] = bucket_arr[j1]
@@ -6154,7 +6039,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>2. barr[j2+1] = bucket_arr[j2]
               BY <5>26, <5>23, <5>24, Zenon
             <6>3. (j1 \in 1..Len(barr) /\ j2+1 \in 1..Len(barr)) => (barr[j1].key = barr[j2+1].key => j1 = j2+1)
-              BY <5>6, Zenon DEF Uniq
+              BY <5>6, Zenon DEF UniqInv
             <6>4. barr[j1].key = barr[j2+1].key => j1 = j2+1
               BY <6>3, <5>24
             <6>5. j1 = j2+1
@@ -6169,7 +6054,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>2. barr[j2] = bucket_arr[j2]
               BY <5>27, <5>20, <5>24, Zenon
             <6>3. (j1+1 \in 1..Len(barr) /\ j2 \in 1..Len(barr)) => (barr[j1+1].key = barr[j2].key => j1+1 = j2)
-              BY <5>6, Zenon DEF Uniq
+              BY <5>6, Zenon DEF UniqInv
             <6>4. barr[j1+1].key = barr[j2].key => j1+1 = j2
               BY <6>3, <5>24
             <6>5. j1+1 = j2
@@ -6178,7 +6063,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <5>27, <5>12, <6>5
           <5>28. CASE j1 > idx-1 /\ j2 > idx-1
             <6>1. (j1+1 \in 1..Len(barr) /\ j2+1 \in 1..Len(barr)) => (barr[j1+1].key = barr[j2+1].key => j1+1 = j2+1)
-              BY <5>6, Zenon DEF Uniq
+              BY <5>6, Zenon DEF UniqInv
             <6>2. barr[j1+1].key = barr[j2+1].key => j1+1 = j2+1
               BY <6>1, <5>24
             <6>3. barr[j1+1] = bucket_arr[j1]
@@ -6189,7 +6074,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>2, <6>3, <6>4
           <5> QED
             BY <5>12, <5>25, <5>26, <5>27, <5>28
-        <4>15. NewBktOK'
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -6205,11 +6090,11 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>1. bucket[p] # NULL
-            BY Zenon DEF BktOK, KeyInBktAtAddr
+            BY Zenon DEF BktInv, KeyInBktAtAddr
           <5>2. PICK idx \in 1..Len(MemLocs[bucket[p]]) : MemLocs[bucket[p]][idx].key = arg[p].key
-            BY Zenon DEF BktOK, KeyInBktAtAddr
+            BY Zenon DEF BktInv, KeyInBktAtAddr
           <5> HIDE DEF R3
           <5>3. idx = CHOOSE index \in 1..Len(MemLocs[bucket[p]]) : MemLocs[bucket[p]][index].key = arg[p].key
             BY <5>1, <5>2
@@ -6234,7 +6119,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                        /\ KeyInBktAtAddr(k, newbkt[q]) => (ValOfKeyInBktAtAddr(k, newbkt[q]) = ValOfKeyInBktAtAddr(k, newbkt[q])')
             <6> USE <5>7
             <6>1. bucket[q] = bucket'[q] /\ newbkt'[q] = newbkt[q] /\ newbkt[q] \in AllocAddrs
-              BY NULLDef, Zenon DEF AddrsOK
+              BY NULLDef, Zenon DEF AddrsInv
             <6>2. MemLocs[newbkt[q]] = MemLocs'[newbkt'[q]]
               BY <5>6, <6>1, Zenon
             <6>3. KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'  
@@ -6283,7 +6168,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY Zenon DEF NewBktOK
+              BY Zenon DEF NewBktInv
             <6>2. arg[q].key \in KeyDomain
               BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
             <6> QED
@@ -6295,7 +6180,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY Zenon DEF NewBktOK
+              BY Zenon DEF NewBktInv
             <6>2. arg[q].key \in KeyDomain
               BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
             <6> QED
@@ -6335,7 +6220,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>8. /\ s1 \in Seq([key: KeyDomain, val: ValDomain])
                     /\ Len(s1) = idx-1
                     /\ \A i \in 1..(idx-1) : s1[i] = old[i]
-                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF new, old, TOK, Inv, RemDef
+                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF new, old, TypeOK, Inv, RemDef
                 <8> QED BY Z3T(30), <7>6, <7>7
               <7>9. \A i \in idx+1..Len(old) : old[i] \in [key: KeyDomain, val: ValDomain]
                 <8> HIDE <5>1, <5>2, <5>3, <5>4
@@ -6359,45 +6244,45 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               <7>14. /\ s1 \o s2 \in Seq([key: KeyDomain, val: ValDomain])
                      /\ Len(s1 \o s2) = Len(s1) + Len(s2)
                      /\ \A i \in 1 .. Len(s1) + Len(s2) : (s1 \o s2)[i] = IF i <= Len(s1) THEN s1[i] ELSE s2[i - Len(s1)]
-                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF new, old, s1, s2, TOK, Inv, RemDef
+                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF new, old, s1, s2, TypeOK, Inv, RemDef
                 <8> QED BY <7>8, <7>12, ZenonT(30), ConcatProperties
               <7>15. /\ s1 \o s2 \in Seq([key: KeyDomain, val: ValDomain])
                      /\ Len(s1 \o s2) = Len(s1) + Len(s2)
                      /\ \A i \in 1 .. Len(s1) + Len(s2) : /\ i <= Len(s1) => (s1 \o s2)[i] = s1[i] 
                                                           /\ i > Len(s1)  => (s1 \o s2)[i] = s2[i - Len(s1)]
-                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                 <8> QED BY <7>10, <7>8, <7>12, <7>14, <7>3
               <7>16. /\ Len(s1) + Len(s2) = Len(old)-1
                      /\ Len(s1) = idx-1
                      /\ Len(s2) = Len(old)-idx
-                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                 <8> QED BY <7>10, <7>12, <7>8, LenProperties
               <7>17. /\ s1 \o s2 \in Seq([key: KeyDomain, val: ValDomain])
                      /\ Len(s1 \o s2) = Len(old)-1
                      /\ \A i \in 1 .. Len(old)-1 : /\ i <= idx-1 => (s1 \o s2)[i] = s1[i] 
                                                    /\ i > idx-1  => (s1 \o s2)[i] = s2[i - (idx-1)]
-                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                 <8> QED BY <7>15, <7>16, Zenon
               <7>18. /\ s1 \o s2 \in Seq([key: KeyDomain, val: ValDomain])
                      /\ Len(s1 \o s2) = Len(old)-1
                      /\ \A i \in 1 .. Len(old)-1 : /\ i <= idx-1 => (s1 \o s2)[i] = s1[i] 
                                                    /\ i > idx-1  => (s1 \o s2)[i] = s2[i-idx+1]
-                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                 <8> QED BY <7>17, <7>10      
               <7>19. \A i \in 1..Len(old)-1 : i <= idx-1 => (s1 \o s2)[i] = old[i]
-                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                 <8> QED BY  <7>8, <7>18, <7>10
               <7>20. \A i \in 1..Len(old)-1 : i > idx-1 => i \in idx..Len(old)-1
-                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                 <8> QED BY  <7>10, LenProperties, <7>2
               <7>21. \A i \in 1..Len(old)-1 : i > idx-1 => s2[i-idx+1] = old[i+1]
-                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                 <8> QED BY  <7>12, <7>20, Zenon
               <7>22. \A i \in 1..Len(old)-1 : i > idx-1  => (s1 \o s2)[i] = old[i+1]
-                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                <8> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                 <8> QED BY  <7>18, <7>21, Zenon
               <7>23. \A j2 \in 1..Len(old) : old[idx].key = old[j2].key => idx = j2
-                BY ZenonT(30) DEF Uniq
+                BY ZenonT(30) DEF UniqInv
               <7>24. \A j2 \in 1..Len(old) : idx # j2 => arg[p].key # old[j2].key
                 BY <7>23, <5>3, Zenon
               <7>25. \A i \in 1..Len(old)-1 : arg[p].key # new[i].key
@@ -6408,10 +6293,10 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   <9>1. new[i] = old[i]
                     BY <7>19, <8>1, Zenon
                   <9>2. i # idx
-                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10> QED  BY <7>10, <8>1
                   <9>3. arg[p].key # old[i].key
-                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10> QED  BY <7>3, <7>24, <8>1, <9>2
                   <9> QED
                     BY <9>1, <9>3, Zenon
@@ -6419,15 +6304,15 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   <9>1. new[i] = old[i+1]
                     BY <7>22, <8>2, Zenon
                   <9>2. i+1 # idx
-                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10> QED  BY <7>10, <8>2
                   <9>3. arg[p].key # old[i+1].key
-                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10> QED  BY <7>3, <7>24, <8>2, <9>2
                   <9> QED
                     BY <9>1, <9>3, Zenon
                 <8> QED
-                  <9> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                  <9> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                   <9> QED  BY <8>1, <8>2, <7>10
               <7>26. ~KeyInBktAtAddr(arg[p].key, newbkt[p])' 
                 BY ZenonT(30), <7>25, <7>17 DEF KeyInBktAtAddr 
@@ -6444,7 +6329,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   <9> USE <8>1
                   <9>1. \A i \in 1..Len(old) : old[i].key # k
                     BY Zenon DEF KeyInBktAtAddr
-                  <9> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                  <9> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                   <9>2. \A i \in 1..Len(old)-1 : new[i].key # k
                     <10> SUFFICES ASSUME NEW i \in 1..Len(old)-1
                                   PROVE  new[i].key # k
@@ -6467,7 +6352,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                       BY <10>1, <10>2, <7>10
                   <9>3. \A i \in 1..Len(new) : new[i].key # k
                     BY <9>2, <7>1, <7>18
-                  <9> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                  <9> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                   <9>4. KeyInBktAtAddr(k, newbkt[p])' = FALSE
                     BY <9>3, <5>4, Zenon DEF KeyInBktAtAddr
                   <9> QED
@@ -6478,7 +6363,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                     BY ZenonT(30) DEF KeyInBktAtAddr
                   <9>2. i # idx
                     BY <5>2, <9>1, Zenon
-                  <9> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                  <9> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                   <9>3. CASE i < idx
                     <10> USE <9>3
                     <10>1. i <= idx-1
@@ -6489,9 +6374,9 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                       BY <7>1, <7>19, <10>1, <10>2, Zenon
                     <10>4. new[i].key = k
                       BY <9>1, <10>3, Zenon
-                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10>5. \A j1, j2 \in 1..Len(new) : new[j1].key = new[j2].key => j1 = j2
-                      BY <4>14, ZenonT(30) DEF Uniq
+                      BY <4>13, ZenonT(30) DEF UniqInv
                     <10>6. i \in 1..Len(new)
                       BY <10>2, <7>18, Zenon
                     <10>7. \A j2 \in 1..Len(new) : new[i].key = new[j2].key => i = j2
@@ -6503,32 +6388,32 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                     <10>10. KeyInBktAtAddr(k, newbkt[p])' = TRUE
                       BY Zenon, NULLDef, <10>4, <10>6 DEF KeyInBktAtAddr
                     <10>11. \A j1, j2 \in 1..Len(old) : old[j1].key = old[j2].key => j1 = j2
-                      BY ZenonT(30) DEF Uniq
+                      BY ZenonT(30) DEF UniqInv
                     <10>12. \A j2 \in 1..Len(old) : old[i].key = old[j2].key => i = j2
                       BY <9>1, <10>11, Zenon
                     <10>13. \A j2 \in 1..Len(old) : i # j2 => old[j2].key # old[i].key
                       BY <10>12, Zenon
                     <10>14. \A j2 \in 1..Len(old) : i # j2 => old[j2].key # k
                       BY <9>1, <10>13, Zenon
-                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10>15. (CHOOSE index \in 1..Len(old) : old[index].key = k) = i
                       BY <9>1, <10>14
                     <10>16. (CHOOSE index \in 1..Len(new) : new[index].key = k) = i
                       BY <10>4, <10>9
-                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10>17. ValOfKeyInBktAtAddr(k, bucket[p]) = old[i].val
                       BY Zenon, <10>15 DEF ValOfKeyInBktAtAddr
                     <10>18. MemLocs'[bucket'[p]] = MemLocs[bucket[p]]
                       BY ZenonT(30)
-                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10>19. ValOfKeyInBktAtAddr(k, bucket[p])' = old[i].val
                       BY Zenon, <10>17, <10>18 DEF ValOfKeyInBktAtAddr  
-                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10>20. ValOfKeyInBktAtAddr(k, newbkt[p])' = new[i].val
                       BY Zenon, <10>16 DEF ValOfKeyInBktAtAddr
                     <10>21. ValOfKeyInBktAtAddr(k, bucket[p])' = ValOfKeyInBktAtAddr(k, newbkt[p])'
                       BY Zenon, <10>3, <10>19, <10>20
-                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10> QED
                       BY <10>10, <10>21, Zenon
                   <9>4. CASE i > idx
@@ -6543,9 +6428,9 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                       BY <10>3A
                     <10>4. new[i-1].key = k
                       BY <9>1, <10>3, Zenon
-                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10>5. \A j1, j2 \in 1..Len(new) : new[j1].key = new[j2].key => j1 = j2
-                      BY <4>14, ZenonT(30) DEF Uniq
+                      BY <4>13, ZenonT(30) DEF UniqInv
                     <10>6. i-1 \in 1..Len(new)
                       BY <10>2, <7>18, Zenon
                     <10>7. \A j2 \in 1..Len(new) : new[i-1].key = new[j2].key => i-1 = j2
@@ -6557,32 +6442,32 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                     <10>10. KeyInBktAtAddr(k, newbkt[p])' = TRUE
                       BY Zenon, NULLDef, <10>4, <10>6 DEF KeyInBktAtAddr
                     <10>11. \A j1, j2 \in 1..Len(old) : old[j1].key = old[j2].key => j1 = j2
-                      BY ZenonT(30) DEF Uniq
+                      BY ZenonT(30) DEF UniqInv
                     <10>12. \A j2 \in 1..Len(old) : old[i].key = old[j2].key => i = j2
                       BY <9>1, <10>11, Zenon
                     <10>13. \A j2 \in 1..Len(old) : i # j2 => old[j2].key # old[i].key
                       BY <10>12, Zenon
                     <10>14. \A j2 \in 1..Len(old) : i # j2 => old[j2].key # k
                       BY <9>1, <10>13, Zenon
-                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10>15. (CHOOSE index \in 1..Len(old) : old[index].key = k) = i
                       BY <9>1, <10>14
                     <10>16. (CHOOSE index \in 1..Len(new) : new[index].key = k) = i-1
                       BY <10>4, <10>9
-                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10>17. ValOfKeyInBktAtAddr(k, bucket[p]) = old[i].val
                       BY Zenon, <10>15 DEF ValOfKeyInBktAtAddr
                     <10>18. MemLocs'[bucket'[p]] = MemLocs[bucket[p]]
                       BY ZenonT(30)
-                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10>19. ValOfKeyInBktAtAddr(k, bucket[p])' = old[i].val
                       BY Zenon, <10>17, <10>18 DEF ValOfKeyInBktAtAddr  
-                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> USE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10>20. ValOfKeyInBktAtAddr(k, newbkt[p])' = new[i-1].val
                       BY Zenon, <10>16 DEF ValOfKeyInBktAtAddr
                     <10>21. ValOfKeyInBktAtAddr(k, bucket[p])' = ValOfKeyInBktAtAddr(k, newbkt[p])'
                       BY Zenon, <10>3, <10>19, <10>20
-                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TOK, Inv, RemDef
+                    <10> HIDE <5>1, <5>2, <5>3, <5>4, <5>10, <6>1, RemDef DEF s1, s2, new, old, TypeOK, Inv, RemDef
                     <10> QED
                       BY <10>10, <10>21, Zenon
                   <9> QED
@@ -6597,7 +6482,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                     /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                               /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                  (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-                BY Zenon DEF NewBktOK
+                BY Zenon DEF NewBktInv
               <7>2. arg[q].key \in KeyDomain
                 BY RemDef, Zenon DEF ArgsOf, LineIDtoOp
               <7> QED
@@ -6607,14 +6492,12 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
           <5> QED
             BY <5>8, <5>9, <5>10
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>14. CASE Line = R4(p)
-        <4> USE <3>14 DEF R4
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>14. CASE LineAction = R4(p)
+        <4> USE <3>14 DEF R4, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           <5>1. CASE A[Hash[arg[p].key]] = bucket[p]
             <6> SUFFICES newbkt[p] \in AllocAddrs \union {NULL}
               BY <5>1, Isa
@@ -6624,26 +6507,26 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             BY <5>2
           <5> QED
             BY <5>1, <5>2
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           OBVIOUS
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES arg[p] \in ArgsOf(LineIDtoOp(pc'[p]))
             BY Zenon
           <5> QED
             BY RemDef, ZenonT(30) DEF LineIDtoOp, ArgsOf
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -6651,19 +6534,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -6674,13 +6557,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -6694,7 +6577,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -6724,7 +6607,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -6747,17 +6630,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -6773,7 +6656,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -6826,7 +6709,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -6844,7 +6727,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -6860,50 +6743,48 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
       <3> QED
         BY Zenon, <3>1, <3>2, <3>3, <3>4, <3>5, <3>6, 
                   <3>7, <3>8, <3>9, <3>10, <3>11, <3>12, <3>13, <3>14 DEF IntLines
-    <2>3. ASSUME NEW p \in ProcSet, 
-                 RetLine(p)
-          PROVE  Inv'
-      <3> SUFFICES ASSUME NEW Line \in RetLines(p), Line
+    <2>3. CASE ReturnAction
+      <3> SUFFICES ASSUME NEW p \in ProcSet,
+                          NEW LineAction \in RetLines(p),
+                          LineAction
                    PROVE  Inv'
-        BY <2>3, Zenon DEF RetLine
-      <3>1. CASE Line = F3(p)
-        <4> USE <3>1, RemDef DEF F3
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+        BY <2>3, Zenon DEF ReturnAction
+      <3>1. CASE LineAction = F3(p)
+        <4> USE <3>1, RemDef DEF F3, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           BY Zenon DEF RetDomain
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES pc'[p] = RemainderID
             BY Zenon
           <5> QED
             BY Zenon
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -6911,19 +6792,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -6934,13 +6815,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -6954,7 +6835,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -6984,7 +6865,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -7007,17 +6888,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -7033,7 +6914,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -7086,7 +6967,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -7104,7 +6985,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -7120,41 +7001,39 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>2. CASE Line = I5(p)
-        <4> USE <3>2, RemDef DEF I5
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>2. CASE LineAction = I5(p)
+        <4> USE <3>2, RemDef DEF I5, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           BY Zenon DEF RetDomain
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES pc'[p] = RemainderID
             BY Zenon
           <5> QED
             BY Zenon
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -7162,19 +7041,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -7185,13 +7064,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -7205,7 +7084,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -7235,7 +7114,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -7258,17 +7137,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -7284,7 +7163,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -7337,7 +7216,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -7355,7 +7234,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -7371,41 +7250,39 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>3. CASE Line = U5(p)
-        <4> USE <3>3, RemDef DEF U5
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>3. CASE LineAction = U5(p)
+        <4> USE <3>3, RemDef DEF U5, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           BY Zenon DEF RetDomain
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES pc'[p] = RemainderID
             BY Zenon
           <5> QED
             BY Zenon
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -7413,19 +7290,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -7436,13 +7313,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -7456,7 +7333,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -7486,7 +7363,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -7509,17 +7386,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -7535,7 +7412,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -7588,7 +7465,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -7606,7 +7483,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -7622,41 +7499,39 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
-      <3>4. CASE Line = R5(p)
-        <4> USE <3>4, RemDef DEF R5
-        <4>1. PTypeOK'
-          BY NextPTypeOK
-        <4>2. (pc \in [ProcSet -> LineIDs])'
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
+      <3>4. CASE LineAction = R5(p)
+        <4> USE <3>4, RemDef DEF R5, TypeOK, Inv, vars
+        <4>1. (pc \in [ProcSet -> LineIDs])'
           BY Isa DEF LineIDs
-        <4>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
+        <4>2. (A \in [1..N -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>4. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
+        <4>3. (MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])])'
           OBVIOUS
-        <4>5. (AllocAddrs \in SUBSET Addrs)'
+        <4>4. (AllocAddrs \in SUBSET Addrs)'
           OBVIOUS
-        <4>6. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>5. (bucket \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>7. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
+        <4>6. (newbkt \in [ProcSet -> AllocAddrs \union {NULL}])'
           OBVIOUS
-        <4>8. (r \in [ProcSet -> ValDomain \union {NULL}])'
+        <4>7. (r \in [ProcSet -> ValDomain \union {NULL}])'
           OBVIOUS
-        <4>9. (arg \in [ProcSet -> ArgDomain])'
+        <4>8. (arg \in [ProcSet -> ArgDomain])'
           OBVIOUS
-        <4>10. (ret \in [ProcSet -> RetDomain])'
+        <4>9. (ret \in [ProcSet -> RetDomain])'
           BY Zenon DEF RetDomain
-        <4>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
+        <4>10. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
           <5> SUFFICES pc'[p] = RemainderID
             BY Zenon
           <5> QED
             BY Zenon
-        <4>12. AddrsOK'
+        <4>11. AddrsInv'
           <5> SUFFICES ASSUME NEW p_1 \in ProcSet',
                               (pc[p_1] \in {"I4", "U4", "R4"})'
                        PROVE  (/\ \A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
@@ -7664,19 +7539,19 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ \A idx \in 1..N  : (A[idx] # newbkt[p_1])
                                /\ newbkt[p_1] # bucket[p_1]
                                /\ newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>1. (\A q \in ProcSet : (p_1 # q => /\ newbkt[p_1] # bucket[q]
                                                 /\ newbkt[p_1] # newbkt[q]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>2. (\A idx \in 1..N  : (A[idx] # newbkt[p_1]))'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>3. (newbkt[p_1] # bucket[p_1])'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>4. (newbkt[p_1] \in AllocAddrs)'
-            BY DEF AddrsOK
+            BY DEF AddrsInv
           <5>5. QED
             BY <5>1, <5>2, <5>3, <5>4
-        <4>13. BktOK'
+        <4>12. BktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  (/\ pc'[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = NULL)
@@ -7687,13 +7562,13 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                /\ pc'[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q])'
                                                               /\ r'[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' 
                                                               /\ r'[q] # NULL))
-            BY DEF BktOK
+            BY DEF BktInv
           <5>1. CASE pc'[q] \in {"I3", "I4"}
             <6> USE <5>1
             <6> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
               OBVIOUS
             <6>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6> QED
               BY <6>1, Zenon DEF KeyInBktAtAddr
           <5>2. CASE pc'[q] \in {"U3", "U4"}
@@ -7707,7 +7582,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -7737,7 +7612,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
             <6>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                   /\ r[q] # NULL
-              BY Zenon DEF BktOK
+              BY Zenon DEF BktInv
             <6>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
               BY Zenon DEF KeyInBktAtAddr
             <6>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -7760,17 +7635,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               BY <6>1, <6>2, <6>7, Zenon
           <5> QED
             BY <5>1, <5>2, <5>3
-        <4>14. Uniq'
+        <4>13. UniqInv'
           <5> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                               NEW bucket_arr, bucket_arr = MemLocs'[addr],
                               NEW j1 \in 1..Len(bucket_arr),
                               NEW j2 \in 1..Len(bucket_arr),
                               bucket_arr[j1].key = bucket_arr[j2].key
                        PROVE  j1 = j2
-            BY Zenon DEF Uniq
+            BY Zenon DEF UniqInv
           <5> QED
-            BY Zenon DEF Uniq
-        <4>15. NewBktOK'
+            BY Zenon DEF UniqInv
+        <4>14. NewBktInv'
           <5> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -7786,7 +7661,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                             /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY ZenonT(60) DEF NewBktOK
+            BY ZenonT(60) DEF NewBktInv
           <5>0. ASSUME NEW k \in KeyDomain
                 PROVE  /\ pc[q] \in {"I4", "U4", "R4"} => KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, bucket[q])'
                        /\ KeyInBktAtAddr(k, newbkt[q]) = KeyInBktAtAddr(k, newbkt[q])'
@@ -7839,7 +7714,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>2. CASE pc'[q] = "U4"
@@ -7857,7 +7732,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5>3. CASE pc'[q] = "R4"
@@ -7873,21 +7748,20 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                   /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                             /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                                (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-              BY <6>1, Zenon DEF NewBktOK
+              BY <6>1, Zenon DEF NewBktInv
             <6> QED
               BY <5>0, <6>1, <6>2, ZenonT(30)
           <5> QED
             BY <5>1, <5>2, <5>3
         <4> QED
-          BY <4>1, <4>10, <4>11, <4>12, <4>13, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>9, <4>14, <4>15 DEF Inv
+          BY <4>9, <4>10, <4>11, <4>12, <4>1, <4>2, <4>3, <4>4, <4>5, <4>6, <4>7, <4>8, <4>13, <4>14 DEF Inv
       <3> QED
         BY Zenon, <3>1, <3>2, <3>3, <3>4 DEF RetLines
     <2> QED
-      BY <1>1, <2>1, <2>2, <2>3 DEF Next
+      BY <2>1, <2>2, <2>3 DEF Next
   <1>2. CASE UNCHANGED vars
-    <2> USE <1>2 DEF vars, algvars
-    <2>1. PTypeOK'
-      BY NextPTypeOK
+    <2> USE DEF Inv, TypeOK
+    <2> USE <1>2 DEF vars, Inv, TypeOK
     <2>2. (pc \in [ProcSet -> LineIDs])'
       BY DEF LineIDs
     <2>3. (A \in [1..N -> AllocAddrs \union {NULL}])'
@@ -7922,7 +7796,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
       BY DEF RetDomain
     <2>11. (\A p_1 \in ProcSet : (pc[p_1] # RemainderID) => arg[p_1] \in ArgsOf(LineIDtoOp(pc[p_1])))'
       OBVIOUS
-    <2>12. AddrsOK'
+    <2>12. AddrsInv'
       <3> SUFFICES ASSUME NEW p \in ProcSet',
                           (pc[p] \in {"I4", "U4", "R4"})'
                    PROVE  (/\ \A q \in ProcSet : (p # q => /\ newbkt[p] # bucket[q]
@@ -7930,21 +7804,21 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                            /\ \A idx \in 1..N  : (A[idx] # newbkt[p])
                            /\ newbkt[p] # bucket[p]
                            /\ newbkt[p] \in AllocAddrs)'
-        BY DEF AddrsOK
+        BY DEF AddrsInv
       <3>1. (\A q \in ProcSet : (p # q => /\ newbkt[p] # bucket[q]
                                           /\ newbkt[p] # newbkt[q]))'
-        BY DEF AddrsOK
+        BY DEF AddrsInv
       <3>2. A = A' /\ newbkt = newbkt'
         OBVIOUS
       <3>3. (\A idx \in 1..N  : (A[idx] # newbkt[p]))'
-        BY <3>2 DEF AddrsOK
+        BY <3>2 DEF AddrsInv
       <3>4. (newbkt[p] # bucket[p])'
-        BY DEF AddrsOK
+        BY DEF AddrsInv
       <3>5. (newbkt[p] \in AllocAddrs)'
-        BY DEF AddrsOK
+        BY DEF AddrsInv
       <3>6. QED
         BY <3>1, <3>3, <3>4, <3>5
-    <2>13. BktOK'
+    <2>13. BktInv'
       <3> SUFFICES ASSUME NEW q \in ProcSet'
                    PROVE  (/\ pc[q] \in {"I3", "I4"} => (/\ ~KeyInBktAtAddr(arg[q].key, bucket[q]) 
                                                          /\ r[q] = NULL)
@@ -7955,7 +7829,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                            /\ pc[q] \in {"R3", "R4"} => (/\ KeyInBktAtAddr(arg[q].key, bucket[q]) 
                                                          /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q]) 
                                                          /\ r[q] # NULL))'
-        BY DEF BktOK
+        BY DEF BktInv
       <3>1. CASE pc'[q] \in {"I3", "I4"}
         <4> USE <3>1
         <4> SUFFICES ~KeyInBktAtAddr(arg[q].key, bucket[q])' /\ r'[q] = NULL
@@ -7963,7 +7837,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
         <4> pc[q] \in {"I3", "I4"}
           OBVIOUS
         <4>1. ~KeyInBktAtAddr(arg[q].key, bucket[q]) /\ r[q] = NULL
-          BY Zenon DEF BktOK
+          BY Zenon DEF BktInv
         <4> QED
           BY <4>1 DEF KeyInBktAtAddr
       <3>2. CASE pc'[q] \in {"U3", "U4"}
@@ -7979,7 +7853,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                      THEN (/\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
                            /\ r[q] # NULL)
                      ELSE r[q] = NULL
-          BY Zenon DEF BktOK
+          BY Zenon DEF BktInv
         <4>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
           BY DEF KeyInBktAtAddr
         <4>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -8011,7 +7885,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
         <4>1. /\ KeyInBktAtAddr(arg[q].key, bucket[q])
               /\ r[q] = ValOfKeyInBktAtAddr(arg[q].key, bucket[q])
               /\ r[q] # NULL
-          BY Zenon DEF BktOK
+          BY Zenon DEF BktInv
         <4>2. KeyInBktAtAddr(arg[q].key, bucket[q]) = KeyInBktAtAddr(arg[q].key, bucket[q])'
           BY DEF KeyInBktAtAddr
         <4>3. ValOfKeyInBktAtAddr(arg[q].key, bucket[q])' = 
@@ -8034,17 +7908,17 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
           BY <4>1, <4>2, <4>7
       <3> QED
         BY <3>1, <3>2, <3>3     
-    <2>14. Uniq'
+    <2>14. UniqInv'
       <3> SUFFICES ASSUME NEW addr \in AllocAddrs', 
                           NEW bucket_arr, bucket_arr = MemLocs'[addr],
                           NEW j1 \in 1..Len(bucket_arr),
                           NEW j2 \in 1..Len(bucket_arr),
                           bucket_arr[j1].key = bucket_arr[j2].key
                    PROVE  j1 = j2
-        BY Zenon DEF Uniq
+        BY Zenon DEF UniqInv
       <3> QED
-        BY DEF Uniq
-    <2>15. NewBktOK'
+        BY DEF UniqInv
+    <2>15. NewBktInv'
       <3> SUFFICES ASSUME NEW q \in ProcSet
                        PROVE  /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
                                                   /\ ValOfKeyInBktAtAddr(arg[q].key, newbkt[q])' = arg[q].val
@@ -8060,7 +7934,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
                                                   /\ \A k \in KeyDomain : k # arg'[q].key => /\ KeyInBktAtAddr(k, bucket[q])' = KeyInBktAtAddr(k, newbkt[q])'
                                                                                              /\ KeyInBktAtAddr(k, bucket[q])' =>
                                                                                                (ValOfKeyInBktAtAddr(k, bucket[q])' = ValOfKeyInBktAtAddr(k, newbkt[q])')
-            BY DEF NewBktOK
+            BY DEF NewBktInv
       <3>A. arg = arg'
         OBVIOUS
       <3>B. SUFFICES /\ pc'[q] = "I4" => /\ KeyInBktAtAddr(arg[q].key, newbkt[q])'
@@ -8130,7 +8004,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                         /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                            (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-          BY <4>1, Zenon DEF NewBktOK
+          BY <4>1, Zenon DEF NewBktInv
         <4> QED
           BY <3>0, <4>1, <4>2
       <3>2. CASE pc'[q] = "U4"
@@ -8148,7 +8022,7 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                         /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                            (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-          BY <4>1, Zenon DEF NewBktOK
+          BY <4>1, Zenon DEF NewBktInv
         <4> QED
           BY <3>0, <4>1, <4>2
       <3>3. CASE pc'[q] = "R4"
@@ -8164,17 +8038,20 @@ LEMMA NextInv == Inv /\ [Next]_vars => Inv'
               /\ \A k \in KeyDomain : k # arg[q].key => /\ KeyInBktAtAddr(k, bucket[q]) = KeyInBktAtAddr(k, newbkt[q])
                                                         /\ KeyInBktAtAddr(k, bucket[q]) =>
                                                            (ValOfKeyInBktAtAddr(k, bucket[q]) = ValOfKeyInBktAtAddr(k, newbkt[q]))
-          BY <4>1, Zenon DEF NewBktOK
+          BY <4>1, Zenon DEF NewBktInv
         <4> QED
           BY <3>0, <4>1, <4>2
       <3> QED
         BY <3>1, <3>2, <3>3
     <2> QED
-      BY <2>1, <2>2, <2>3, <2>4, <2>5, <2>6, <2>7, <2>8, <2>9, <2>10, <2>11, <2>12, <2>13, <2>14, <2>15 DEF Inv
+      BY <2>2, <2>3, <2>4, <2>5, <2>6, <2>7, <2>8, <2>9, <2>10, <2>11, <2>12, <2>13, <2>14, <2>15 DEF Inv
   <1> QED
     BY <1>1, <1>2
 
+THEOREM SpecInv == Spec => []Inv
+  BY InitInv, NextInv, PTL DEF Spec
+
 ===========================================================================
 \* Modification History
-\* Last modified Thu Aug 08 09:39:50 EDT 2024 by uguryavuz
+\* Last modified Thu Aug 15 15:37:42 EDT 2024 by uguryavuz
 \* Created Thu Aug 08 09:37:36 EDT 2024 by uguryavuz
