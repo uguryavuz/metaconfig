@@ -5,16 +5,10 @@ CONSTANTS ACK, \* Default return value for returns with no value
           ProcSet, \* The set of all processes
           WordDomain, \* The domain of the words
           M, \* The size of the array of words
-          UOpSet \* The set of all update operations (with uarg folded in)
-                 \* these should be maps WordDomain -> WordDomain x (some return domain for the operation)
+          UOpRetDomain \* Domain of return values
 
-\* Assume well-formedness of the UOpSet:
-\* specifically, it consists of maps from WordDomain to WordDomain x RetValues, for some set RetValues.
-\* Note that the set RetValues is a set that contains all possible return values for 
-\* every operation in UOpSet.
-ASSUME UOpSet_WF == 
-    \E RetValues : /\ RetValues # {}
-                   /\ UOpSet \in SUBSET [WordDomain -> WordDomain \X RetValues]
+\* UOpRetDomain is not empty
+ASSUME UOpRetDomainNE == UOpRetDomain # {}
 
 \* M is a non-zero natural number
 ASSUME M_NZ == M \in Nat \ {0}
@@ -22,16 +16,15 @@ ASSUME M_NZ == M \in Nat \ {0}
 \* WordDomain is a non-empty set
 ASSUME WordDomainNE == WordDomain # {}
 
-\* Retrieve the return domain of the UOpSet
-UOpRetDomain == CHOOSE RetValues : /\ RetValues # {}
-                                   /\ UOpSet \in SUBSET [WordDomain -> WordDomain \X RetValues]
-
 \* Scanner and updater processes : assume ProcSet is non-empty
 ASSUME ProcSetNE == ProcSet # {}
 Scanner == CHOOSE s \in ProcSet : TRUE
 UpdSet  == ProcSet \ {Scanner}
 
 OpNames == {"Click", "Observe", "Update"}
+AllowedOpNames(p) == CASE p = Scanner -> {"Click", "Observe"}
+                       [] p \in UpdSet -> {"Update"}
+                       
 OpDomain == {"Click", "Observe", "Update", BOT}
 StateDomain == [val:  [1..M -> WordDomain],
                 snap: [1..M -> WordDomain]]
@@ -39,7 +32,7 @@ StateDomain == [val:  [1..M -> WordDomain],
 \* Click takes no arguments, 
 \* Observe takes i \in 1..M, 
 \* Update takes i \in 1..M and uop \in UOpSet
-ArgDomain == [i: 1..M] \union [i: 1..M, uop: UOpSet] \union {BOT}
+ArgDomain == [i: 1..M] \union [i: 1..M, uop: [WordDomain -> WordDomain \X UOpRetDomain]] \union {BOT}
 
 \* Return values domain: Click returns ACK, Observe returns a word, Update returns something in UOpRetDomain
 RetDomain == WordDomain \union UOpRetDomain \union {ACK}
@@ -48,7 +41,7 @@ ResDomain == WordDomain \union UOpRetDomain \union {ACK, BOT}
 \* ArgsOf(op) is the set of arguments that can be passed to operation op
 ArgsOf(op) == CASE op = "Click"   -> {BOT}
                 [] op = "Observe" -> [i: 1..M]
-                [] op = "Update"  -> [i: 1..M, uop: UOpSet]
+                [] op = "Update"  -> [i: 1..M, uop: [WordDomain -> WordDomain \X UOpRetDomain]]
                 [] OTHER          -> {}
 
 \* ConfigDomain is the set of all possibilities
@@ -82,5 +75,5 @@ Delta(c, p, d) == CASE (c.op[p] = "Click"
 
 ===============================================================================
 \* Modification History
-\* Last modified Tue Aug 13 11:27:37 EDT 2024 by uguryavuz
+\* Last modified Wed Aug 21 10:38:19 EDT 2024 by uguryavuz
 \* Created Tue Mar 12 21:14:40 EST 2024 by uguryavuz

@@ -2,7 +2,7 @@
 EXTENDS   Cptable_Type
 CONSTANT  RemainderID
 VARIABLES A, B, X, a, b, x, k, r, arg, ret, pc
-algvars == <<A, B, X, a, b, x, k, r>>
+vars == <<A, B, X, a, b, x, k, r, arg, ret, pc>>
 
 C1(p)  == /\ pc[p] = "C1"
           /\ p = Scanner
@@ -18,19 +18,14 @@ C2(p)  == /\ pc[p] = "C2"
 
 O1A(p) == /\ pc[p] = "O1A"
           /\ p = Scanner
-          /\ IF k[p] > 2
-                THEN /\ k' = [k EXCEPT ![p] = 1]
-                     /\ pc' = [pc EXCEPT ![p] = "O2"]
-                     /\ b' = b
-                ELSE /\ k' = k
-                     /\ pc' = [pc EXCEPT ![p] = "O1B"]
-                     /\ b' = [b EXCEPT ![p] = B[arg[p].i]]
-          /\ UNCHANGED <<A, B, X, a, x, r, arg, ret>>
+          /\ pc' = [pc EXCEPT ![p] = "O1B"]
+          /\ b' = [b EXCEPT ![p] = B[arg[p].i]]
+          /\ UNCHANGED <<A, B, X, a, x, k, r, arg, ret>>
 
 O1B(p) == /\ pc[p] = "O1B"
           /\ p = Scanner
           /\ x' = [x EXCEPT ![p] = X]
-          /\ IF b[p].seq = x[p]
+          /\ IF b[p].seq = X (* Note that in the paper, this is x[p] but after the read - so here it should be X *)
                 THEN /\ k' = [k EXCEPT ![p] = 1]
                      /\ pc' = [pc EXCEPT ![p] = "O2"]
                 ELSE /\ k' = k
@@ -50,9 +45,13 @@ O1D(p) == /\ pc[p] = "O1D"
                      /\ B' = [B EXCEPT ![arg[p].i] = [val |-> a[p], 
                                                       seq |-> x[p]]]
                      /\ pc' = [pc EXCEPT ![p] = "O2"]
-                ELSE /\ k' = [k EXCEPT ![p] = k[p]+1]
-                     /\ B' = B
-                     /\ pc' = [pc EXCEPT ![p] = "O1A"]
+                ELSE IF k[p] = 2
+                     THEN /\ k' = [k EXCEPT ![p] = 1]
+                          /\ B' = B
+                          /\ pc' = [pc EXCEPT ![p] = "O2"]
+                     ELSE /\ k' = [k EXCEPT ![p] = k[p]+1]
+                          /\ B' = B
+                          /\ pc' = [pc EXCEPT ![p] = "O1A"]
           /\ UNCHANGED <<A, X, a, b, x, r, arg, ret>>
 
 O2(p)  == /\ pc[p] = "O2"
@@ -69,19 +68,14 @@ O3(p)  == /\ pc[p] = "O3"
 
 U1A(p) == /\ pc[p] = "U1A"
           /\ p \in UpdSet
-          /\ IF k[p] > 2
-                THEN /\ k' = [k EXCEPT ![p] = 1]
-                     /\ pc' = [pc EXCEPT ![p] = "U2"]
-                     /\ b' = b
-                ELSE /\ k' = k
-                     /\ pc' = [pc EXCEPT ![p] = "U1B"]
-                     /\ b' = [b EXCEPT ![p] = B[arg[p].i]]
-          /\ UNCHANGED <<A, B, X, a, x, r, arg, ret>>
+          /\ pc' = [pc EXCEPT ![p] = "U1B"]
+          /\ b' = [b EXCEPT ![p] = B[arg[p].i]]
+          /\ UNCHANGED <<A, B, X, a, x, k, r, arg, ret>>
 
 U1B(p) == /\ pc[p] = "U1B"
           /\ p \in UpdSet
           /\ x' = [x EXCEPT ![p] = X]
-          /\ IF b[p].seq = x[p]
+          /\ IF b[p].seq = X (* Note that in the paper, this is x[p] but after the read - so here it should be X *)
                 THEN /\ k' = [k EXCEPT ![p] = 1]
                      /\ pc' = [pc EXCEPT ![p] = "U2"]
                 ELSE /\ k' = k
@@ -101,9 +95,13 @@ U1D(p) == /\ pc[p] = "U1D"
                      /\ B' = [B EXCEPT ![arg[p].i] = [val |-> a[p], 
                                                       seq |-> x[p]]]
                      /\ pc' = [pc EXCEPT ![p] = "U2"]
-                ELSE /\ k' = [k EXCEPT ![p] = k[p]+1]
-                     /\ B' = B
-                     /\ pc' = [pc EXCEPT ![p] = "U1A"]
+                ELSE IF k[p] = 2
+                     THEN /\ k' = [k EXCEPT ![p] = 1]
+                          /\ B' = B
+                          /\ pc' = [pc EXCEPT ![p] = "U2"]
+                     ELSE /\ k' = [k EXCEPT ![p] = k[p]+1]
+                          /\ B' = B
+                          /\ pc' = [pc EXCEPT ![p] = "U1A"]
           /\ UNCHANGED <<A, X, a, b, x, r, arg, ret>>
 
 U2(p)  == /\ pc[p] = "U2"
@@ -129,7 +127,7 @@ Init == /\ pc = [p \in ProcSet |-> RemainderID]
         /\ a \in [ProcSet -> WordDomain]
         /\ b \in [ProcSet -> [val: WordDomain, seq: Nat]]
         /\ x \in [ProcSet -> Nat]
-        /\ k \in [ProcSet -> 1..3]
+        /\ k \in [ProcSet -> 1..2]
         /\ r \in [ProcSet -> WordDomain \union UOpRetDomain]
         /\ arg \in [ProcSet -> ArgDomain]
         /\ ret \in [ProcSet -> ResDomain]
@@ -156,5 +154,5 @@ RetLines(p) == {C2(p), O3(p), U3(p)}
 
 ===============================================================================
 \* Modification History
-\* Last modified Wed Aug 14 09:40:17 EDT 2024 by uguryavuz
+\* Last modified Mon Aug 19 10:04:35 EDT 2024 by uguryavuz
 \* Created Wed Mar 13 17:52:43 EDT 2024 by uguryavuz
