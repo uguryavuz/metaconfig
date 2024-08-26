@@ -1,35 +1,23 @@
---------------------------- MODULE PHash_Proof1_HO ---------------------------
-EXTENDS  PHash_Impl, SequenceTheorems, FiniteSets, TLAPS
-INSTANCE Augmentation
+--------------------------- MODULE ParlayHashIndInv ---------------------------
+EXTENDS ParlayHashImplementation
 
-ASSUME HashDef == Hash \in [KeyDomain -> 1..N]
-ASSUME NDef    == N \in Nat \ {0}
-ASSUME NULLDef == /\ NULL \notin Addrs
-                  /\ NULL \notin ValDomain
-ASSUME RemDef  == RemainderID = "Remainder"
-                                      
-InvokeLine(p) == /\ pc[p] = RemainderID
-                 /\ \E op \in OpNames :
-                       /\ pc' = [pc EXCEPT ![p] = OpToInvocLine(op)]
-                       /\ \E new_arg \in ArgsOf(op) : arg' = [arg EXCEPT ![p] = new_arg]
-                 /\ UNCHANGED <<A, MemLocs, AllocAddrs, bucket, newbkt, r, ret>>
-
-InvocnAction == \E p \in ProcSet : InvokeLine(p)
-IntermAction == \E p \in ProcSet : \E LineAction \in IntLines(p) : LineAction
-ReturnAction == \E p \in ProcSet : \E LineAction \in RetLines(p) : LineAction
-
-Next == \/ InvocnAction
-        \/ IntermAction
-        \/ ReturnAction
-        
-Spec == Init /\ [][Next]_vars
-
+\* Any process who is attempting a CAS in insert, upsert or remove
+\* has a newbkt that is an allocated address, differing from its bucket,
+\* any address currently in the table (i.e. A), and also the newbkt or bucket 
+\* of any other process.
 AddrsInv  == \A p \in ProcSet : pc[p] \in {"I4", "U4", "R4"}
                => /\ \A q \in ProcSet : (p # q => (newbkt[p] # bucket[q] /\ newbkt[p] # newbkt[q]))
                   /\ \A idx \in 1..N  : (A[idx] # newbkt[p])
                   /\ newbkt[p] # bucket[p]
                   /\ newbkt[p] \in AllocAddrs
 
+\* At the third and fourth lines of insert / upsert / remove --
+\* insert: the key is not in the bucket and the return value is NULL
+\* upsert: if the key is in the bucket, the return value is the value
+\*         corresponding to the key in the bucket and it is not NULL;
+\*         otherwise the return value is NULL
+\* remove: the key is in the bucket and the return value is the value
+\*         corresponding to the key in the bucket and it is not NULL.
 BktInv    == \A p \in ProcSet : 
                   /\ pc[p] \in {"I3", "I4"} => (~KeyInBktAtAddr(arg[p].key, bucket[p]) /\ r[p] = NULL)
                   /\ pc[p] \in {"U3", "U4"} => (IF KeyInBktAtAddr(arg[p].key, bucket[p])
@@ -39,6 +27,13 @@ BktInv    == \A p \in ProcSet :
                                                 /\ r[p] = ValOfKeyInBktAtAddr(arg[p].key, bucket[p]) 
                                                 /\ r[p] # NULL)
 
+\* At the fourth (CAS) line of insert / upsert / remove --
+\* insert / upsert: the key is in the new bucket and the corresponding value is the value
+\*                  in the argument.
+\* remove: the key is not in the new bucket.
+\* for all keys other than the key in the argument, whether the key is in the new bucket
+\* is the same as whether it is in the bucket, and if it is in the bucket, the values 
+\* corresponding to the key in the bucket and the new bucket are the same.  
 NewBktInv == \A p \in ProcSet : 
                   /\ pc[p] = "I4" => /\ KeyInBktAtAddr(arg[p].key, newbkt[p])
                                      /\ ValOfKeyInBktAtAddr(arg[p].key, newbkt[p]) = arg[p].val
@@ -55,9 +50,11 @@ NewBktInv == \A p \in ProcSet :
                                                                                /\ KeyInBktAtAddr(k, bucket[p]) =>
                                                                                   (ValOfKeyInBktAtAddr(k, bucket[p]) = ValOfKeyInBktAtAddr(k, newbkt[p]))
 
+\* No key appears in a bucket more than once.
 UniqInv   == \A addr \in AllocAddrs : LET bucket_arr == MemLocs[addr] IN
                                       \A j1, j2 \in 1..Len(bucket_arr) : bucket_arr[j1].key = bucket_arr[j2].key => j1 = j2
 
+\* Type correctness
 TypeOK    == /\ pc \in [ProcSet -> LineIDs]
              /\ A \in [1..N -> AllocAddrs \union {NULL}]
              /\ MemLocs \in [Addrs -> Seq([key: KeyDomain, val: ValDomain])]
@@ -75,14 +72,52 @@ Inv == /\ AddrsInv
        /\ UniqInv
        /\ TypeOK
 
+\* Thm: Inductive invariant holds at the initial state
 THEOREM InitInv == Init => Inv
 
+\* Lemma: Inductive invariant is preserved by invocation
+LEMMA InvocInv == Inv /\ InvocnAction => Inv'
+
+\* Lemma: Inductive invariant is preserved by Find
+LEMMA FindInv == Inv /\ (\E p \in ProcSet : \/ F1(p)
+                                            \/ F2(p)) => Inv'
+                                        
+\* Lemma: Inductive invariant is preserved by Insert
+LEMMA InsertInv == Inv /\ (\E p \in ProcSet : \/ I1(p)
+                                              \/ I2(p)
+                                              \/ I3(p)
+                                              \/ I4(p)) => Inv'
+
+\* Lemma: Inductive invariant is preserved by Upsert
+LEMMA UpsertInv == Inv /\ (\E p \in ProcSet : \/ U1(p)
+                                              \/ U2(p)
+                                              \/ U3(p)
+                                              \/ U4(p)) => Inv'
+
+\* Lemma: Inductive invariant is preserved by Remove
+LEMMA RemoveInv == Inv /\ (\E p \in ProcSet : \/ R1(p)
+                                              \/ R2(p)
+                                              \/ R3(p)
+                                              \/ R4(p)) => Inv'
+
+\* Lemma: Inductive invariant is preserved by intermediate line actions
+\* (Implied by the 4 lemmas above)
+LEMMA IntermInv == Inv /\ IntermAction => Inv'
+
+\* Lemma: Inductive invariant is preserved by return
+LEMMA ReturnInv == Inv /\ ReturnAction => Inv'
+
+\* Lemma: Inductive invariant is preserved by stuttering
+LEMMA StutterInv == Inv /\ UNCHANGED vars => Inv'
+
+\* Thm: Inductive invariant is preserved by the next-state relation
 THEOREM NextInv == Inv /\ [Next]_vars => Inv'
 
+\* Thm: Inductive invariant is an invariant of Spec, implied
+\* immediately by InitInv and NextInv
 THEOREM SpecInv == Spec => []Inv
-  BY InitInv, NextInv, PTL DEF Spec
 
-===========================================================================
+===============================================================================
 \* Modification History
-\* Last modified Fri Aug 16 15:07:26 EDT 2024 by uguryavuz
+\* Last modified Mon Aug 26 12:27:18 EDT 2024 by uguryavuz
 \* Created Thu Aug 08 09:37:36 EDT 2024 by uguryavuz
