@@ -1,6 +1,6 @@
 --------------------------- MODULE ParlayHashIndInv_return_proofs ----------------------
 (***************************************************************************
- This file contains the proof of ReturnInv from ParlayHashIndInv.tla
+ This module contains the proof of ReturnInv from ParlayHashIndInv.tla
  ***************************************************************************)
 EXTENDS ParlayHashIndInv, Assumptions, TLAPS,
         SequenceTheorems, FiniteSets

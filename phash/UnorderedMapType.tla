@@ -1,4 +1,8 @@
 ----------------------------- MODULE UnorderedMapType -----------------------------
+(***************************************************************************
+ This module contains definitions related to the unordered map type;
+ specifically meta-configuration domains, and the transition relation.
+ ***************************************************************************)
 CONSTANTS NULL, BOT, ProcSet, KeyDomain, ValDomain
 
 \* Set of all possible operations

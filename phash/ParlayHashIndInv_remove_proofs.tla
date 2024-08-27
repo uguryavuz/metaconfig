@@ -1,6 +1,6 @@
 --------------------------- MODULE ParlayHashIndInv_remove_proofs ----------------------
 (***************************************************************************
- This file contains the proof of RemoveInv from ParlayHashIndInv.tla
+ This module contains the proof of RemoveInv from ParlayHashIndInv.tla
  ***************************************************************************)
 EXTENDS ParlayHashIndInv, Assumptions, TLAPS,
         SequenceTheorems, FiniteSets

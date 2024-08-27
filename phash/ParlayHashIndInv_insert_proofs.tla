@@ -1,6 +1,6 @@
 --------------------------- MODULE ParlayHashIndInv_insert_proofs ----------------------
 (***************************************************************************
- This file contains the proof of InsertInv from ParlayHashIndInv.tla
+ This module contains the proof of InsertInv from ParlayHashIndInv.tla
  ***************************************************************************)
 EXTENDS ParlayHashIndInv, Assumptions, TLAPS,
         SequenceTheorems, FiniteSets

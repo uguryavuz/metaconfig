@@ -1,6 +1,6 @@
 --------------------------- MODULE ParlayHashIndInv_proofs ---------------------------
 (***************************************************************************
- This file contains proofs of InitInv, StutterInv, IntermInv, NextInv, 
+ This module contains proofs of InitInv, StutterInv, IntermInv, NextInv, 
  and SpecInv from ParlayHashIndInv.tla.
  ***************************************************************************)
 EXTENDS ParlayHashIndInv, Assumptions, TLAPS

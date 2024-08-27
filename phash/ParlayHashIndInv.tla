@@ -1,4 +1,8 @@
 --------------------------- MODULE ParlayHashIndInv ---------------------------
+(***************************************************************************
+ This module contains the inductive invariant for ParlayHash, and the 
+ declarations of the lemmas and theorems that prove the inductive invariant.
+ ***************************************************************************)
 EXTENDS ParlayHashImplementation
 
 \* Any process who is attempting a CAS in insert, upsert or remove
@@ -73,48 +77,60 @@ Inv == /\ AddrsInv
        /\ TypeOK
 
 \* Thm: Inductive invariant holds at the initial state
+\* Proof in ParlayHashIndInv_proofs
 THEOREM InitInv == Init => Inv
 
 \* Lemma: Inductive invariant is preserved by invocation
+\* Proof in ParlayHashIndInv_invoc_proofs
 LEMMA InvocInv == Inv /\ InvocnAction => Inv'
 
 \* Lemma: Inductive invariant is preserved by Find
+\* Proof in ParlayHashIndInv_find_proofs
 LEMMA FindInv == Inv /\ (\E p \in ProcSet : \/ F1(p)
                                             \/ F2(p)) => Inv'
                                         
 \* Lemma: Inductive invariant is preserved by Insert
+\* Proof in ParlayHashIndInv_insert_proofs
 LEMMA InsertInv == Inv /\ (\E p \in ProcSet : \/ I1(p)
                                               \/ I2(p)
                                               \/ I3(p)
                                               \/ I4(p)) => Inv'
 
 \* Lemma: Inductive invariant is preserved by Upsert
+\* Proof in ParlayHashIndInv_upsert_proofs
 LEMMA UpsertInv == Inv /\ (\E p \in ProcSet : \/ U1(p)
                                               \/ U2(p)
                                               \/ U3(p)
                                               \/ U4(p)) => Inv'
 
 \* Lemma: Inductive invariant is preserved by Remove
+\* Proof in ParlayHashIndInv_remove_proofs
 LEMMA RemoveInv == Inv /\ (\E p \in ProcSet : \/ R1(p)
                                               \/ R2(p)
                                               \/ R3(p)
                                               \/ R4(p)) => Inv'
 
 \* Lemma: Inductive invariant is preserved by intermediate line actions
-\* (Implied by the 4 lemmas above)
+\* Implied by FindInv, InsertInv, UpsertInv, RemoveInv
+\* Proof in ParlayHashIndInv_proofs
 LEMMA IntermInv == Inv /\ IntermAction => Inv'
 
 \* Lemma: Inductive invariant is preserved by return
+\* Proof in ParlayHashIndInv_return_proofs
 LEMMA ReturnInv == Inv /\ ReturnAction => Inv'
 
 \* Lemma: Inductive invariant is preserved by stuttering
+\* Proof in ParlayHashIndInv_proofs
 LEMMA StutterInv == Inv /\ UNCHANGED vars => Inv'
 
 \* Thm: Inductive invariant is preserved by the next-state relation
+\* Implied by InvocInv, IntermedInv, ReturnInv, StutterInv
+\* Proof in ParlayHashIndInv_proofs
 THEOREM NextInv == Inv /\ [Next]_vars => Inv'
 
-\* Thm: Inductive invariant is an invariant of Spec, implied
-\* immediately by InitInv and NextInv
+\* Thm: Inductive invariant is an invariant of Spec
+\* Implied by InitInv, NextInv
+\* Proof in ParlayHashIndInv_proofs
 THEOREM SpecInv == Spec => []Inv
 
 ===============================================================================

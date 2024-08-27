@@ -1,4 +1,7 @@
 ----------------------------- MODULE ParlayHashImplementation -----------------------------
+(***************************************************************************
+ This module contains the TLA+ specification of ParlayHash.
+ ***************************************************************************)
 EXTENDS   UnorderedMapType, Integers, Sequences, FiniteSets
 CONSTANT  RemainderID, Hash, Addrs, N
 VARIABLES pc, A, MemLocs, AllocAddrs, bucket, newbkt, r, arg, ret
