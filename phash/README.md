@@ -38,6 +38,7 @@ There are four components of this effort:
     - `MCTracking_proofs.tla`: Proof that the witness matches the initial configuration, is non-empty and a singleton, 
       proofs of miscellaneous lemmas, and proof of `StrongLinearizability`. -->
 
+## Important definitions and theorems
 Here is a list of useful definitions and theorems, and where they are defined and proven:
 - Pertaining to the inductive invariant - all defined in `IndInv.tla`:
     - `Inv`: The inductive invariant.
