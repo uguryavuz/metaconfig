@@ -1,8 +1,8 @@
---------------------------- MODULE ParlayHashMCTracking_return_proofs ---------------------------
+--------------------------- MODULE MCTracking_return_proofs ---------------------------
 (***************************************************************************
- This module contains the proof of LinReturnLine from ParlayHashMCTracking.tla
+ This module contains the proof of LinReturnLine from MCTracking.tla
  ***************************************************************************)
-EXTENDS ParlayHashMCTracking, Assumptions, 
+EXTENDS MCTracking, Assumptions, 
         SequenceTheorems, FiniteSetTheorems, TLAPS
 
 \* S' - i.e. S in the next configuration

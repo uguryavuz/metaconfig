@@ -1,8 +1,8 @@
---------------------------- MODULE ParlayHashIndInv_insert_proofs ----------------------
+--------------------------- MODULE IndInv_insert_proofs ----------------------
 (***************************************************************************
- This module contains the proof of InsertInv from ParlayHashIndInv.tla
+ This module contains the proof of InsertInv from IndInv.tla
  ***************************************************************************)
-EXTENDS ParlayHashIndInv, Assumptions, TLAPS,
+EXTENDS IndInv, Assumptions, TLAPS,
         SequenceTheorems, FiniteSets
 
 \* InsertInv = Inv /\ (\E p \in ProcSet : \/ I1(p)

@@ -1,8 +1,8 @@
---------------------------- MODULE ParlayHashIndInv_invoc_proofs ----------------------
+--------------------------- MODULE IndInv_invoc_proofs ----------------------
 (***************************************************************************
- This module contains the proof of InvocInv from ParlayHashIndInv.tla
+ This module contains the proof of InvocInv from IndInv.tla
  ***************************************************************************)
-EXTENDS ParlayHashIndInv, Assumptions, TLAPS,
+EXTENDS IndInv, Assumptions, TLAPS,
         SequenceTheorems, FiniteSets
 
 \* InvocInv == Inv /\ InvocnAction => Inv'

@@ -1,8 +1,8 @@
---------------------------- MODULE ParlayHashMCTracking_invoc_proofs ---------------------------
+--------------------------- MODULE MCTracking_invoc_proofs ---------------------------
 (***************************************************************************
- This module contains the proof of LinInvocationLine from ParlayHashMCTracking.tla
+ This module contains the proof of LinInvocationLine from MCTracking.tla
  ***************************************************************************)
-EXTENDS ParlayHashMCTracking, Assumptions, 
+EXTENDS MCTracking, Assumptions, 
         SequenceTheorems, FiniteSetTheorems, TLAPS
 
 \* S' - i.e. S in the next configuration

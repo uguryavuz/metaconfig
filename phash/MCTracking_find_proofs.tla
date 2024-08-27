@@ -1,9 +1,8 @@
---------------------------- MODULE ParlayHashMCTracking_find_proofs ----------------------
+--------------------------- MODULE MCTracking_find_proofs ----------------------
 (***************************************************************************
- This module contains the proof of LinIntermediateLine_Find 
- from ParlayHashIndInv.tla
+ This module contains the proof of LinIntermediateLine_Find from IndInv.tla
  ***************************************************************************)
-EXTENDS ParlayHashMCTracking, Assumptions, TLAPS,
+EXTENDS MCTracking, Assumptions, TLAPS,
         SequenceTheorems, FiniteSets
 
 \* S' - i.e. S in the next configuration

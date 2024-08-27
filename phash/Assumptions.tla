@@ -1,5 +1,5 @@
 ---------------------------- MODULE Assumptions ----------------------------
-EXTENDS ParlayHashImplementation
+EXTENDS Implementation
 
 ASSUME HashDef == Hash \in [KeyDomain -> 1..N]
 ASSUME NDef    == N \in Nat \ {0}

@@ -1,9 +1,9 @@
---------------------------- MODULE ParlayHashMCTracking ---------------------------
+--------------------------- MODULE MCTracking ---------------------------
 (***************************************************************************
  This module contains meta-configuration tracking related definitions and
  theorem / lemma declarations for ParlayHash.
  ***************************************************************************)
-EXTENDS ParlayHashIndInv
+EXTENDS IndInv
 INSTANCE Augmentation
 
 \* Witness S for proof of linearizability by meta-configuration tracking.

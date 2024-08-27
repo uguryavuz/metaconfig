@@ -1,8 +1,8 @@
---------------------------- MODULE ParlayHashIndInv_find_proofs ----------------------
+--------------------------- MODULE IndInv_find_proofs ----------------------
 (***************************************************************************
- This module contains the proof of FindInv from ParlayHashIndInv.tla
+ This module contains the proof of FindInv from IndInv.tla
  ***************************************************************************)
-EXTENDS ParlayHashIndInv, Assumptions, TLAPS,
+EXTENDS IndInv, Assumptions, TLAPS,
         SequenceTheorems
 
 \* FindInv = Inv /\ (\E p \in ProcSet : \/ F1(p)

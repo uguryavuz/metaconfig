@@ -1,8 +1,8 @@
---------------------------- MODULE ParlayHashMCTracking_proofs ---------------------------
+--------------------------- MODULE MCTracking_proofs ---------------------------
 (***************************************************************************
  This module contains proofs of _ 
  ***************************************************************************)
-EXTENDS ParlayHashMCTracking, Assumptions, 
+EXTENDS MCTracking, Assumptions, 
         SequenceTheorems, FiniteSetTheorems, TLAPS
 
 \* LinInit = Init => (S = {[state |-> [k \in KeyDomain |-> NULL],

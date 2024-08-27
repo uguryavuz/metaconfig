@@ -1,9 +1,9 @@
---------------------------- MODULE ParlayHashIndInv_proofs ---------------------------
+--------------------------- MODULE IndInv_proofs ---------------------------
 (***************************************************************************
  This module contains proofs of InitInv, StutterInv, IntermInv, NextInv, 
- and SpecInv from ParlayHashIndInv.tla.
+ and SpecInv from IndInv.tla.
  ***************************************************************************)
-EXTENDS ParlayHashIndInv, Assumptions, TLAPS
+EXTENDS IndInv, Assumptions, TLAPS
 
 \* InitInv = Init => Inv
 THEOREM InitInv
