@@ -1,4 +1,4 @@
---------------------------- MODULE MCTracking_proofs ---------------------------
+ --------------------------- MODULE MCTracking_proofs ---------------------------
 (***************************************************************************
  This module contains proofs of _ 
  ***************************************************************************)
@@ -354,6 +354,26 @@ LEMMA UniqueReturner
     BY DEF RetLines, F3, I5, U5, R5, TypeOK
   <1> QED
     BY <1>1, <1>2, <1>3
+
+\* LinIntermediateLine = Inv /\ IntermAction => S' \in SUBSET Evolve(S)
+THEOREM LinIntermediateLine
+  <1> SUFFICES ASSUME Inv,
+                      NEW p \in ProcSet,
+                      NEW LineAction \in IntLines(p),
+                      LineAction
+               PROVE  S' \in SUBSET Evolve(S)
+    BY Zenon DEF IntermAction
+  <1>1. CASE LineAction \in {F1(p), F2(p)}
+    BY <1>1, Zenon, LinIntermediateLine_Find
+  <1>2. CASE LineAction \in {I1(p), I2(p), I3(p), I4(p)}
+    BY <1>2, Zenon, LinIntermediateLine_Insert
+  <1>3. CASE LineAction \in {U1(p), U2(p), U3(p), U4(p)}
+    BY <1>3, Zenon, LinIntermediateLine_Upsert
+  <1>4. CASE LineAction \in {R1(p), R2(p), R3(p), R4(p)}
+    BY <1>4, Zenon, LinIntermediateLine_Remove
+  <1> QED
+    BY <1>1, <1>2, <1>3, <1>4, Zenon DEF IntLines
+              
 
 \* StrongLinearizability = Spec => [][/\ IntermAction => S' \in SUBSET Evolve(S)
 \*                                    /\ InvocnAction => S' \in SUBSET Evolve(Invoke(S, InvokerProc, LineIDtoOp(pc'[InvokerProc]), arg'[InvokerProc]))
