@@ -1207,5 +1207,5 @@ LEMMA NextInv == Inv /\ [Next]_augvars => Inv'
 
 ================================================================================
 \* Modification History
-\* Last modified Thu Aug 22 12:57:05 EDT 2024 by uguryavuz
+\* Last modified Fri Aug 23 10:23:08 EDT 2024 by uguryavuz
 \* Created Wed Mar 13 19:30:05 EDT 2024 by uguryavuz
