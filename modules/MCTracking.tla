@@ -10,13 +10,14 @@
 
 LOCAL INSTANCE Integers
 LOCAL INSTANCE Sequences
-CONSTANTS BOT,            (* Symbolic bottom value *)
-          ProcSet,        (* Symbolic set of processes *)
-          StateDomain,
-          OpNames,
-          ArgsOf(_),
-          RetsOf(_),
-          Delta(_, _, _)  (* Transition relation : conf * proc * conf -> bool *)
+CONSTANTS 
+  BOT,            (* Symbolic bottom value *)
+  ProcSet,        (* Symbolic set of processes *)
+  StateDomain,
+  OpNames,
+  ArgsOf(_),
+  RetsOf(_),
+  Delta(_, _, _)  (* Transition relation : conf * proc * conf -> bool *)
 
 (***************************************************************************)
 (* Domain of configurations                                                *)

@@ -7,31 +7,30 @@
 (* Last updated: 2025-07-24                                                *)
 (***************************************************************************)
 
-CONSTANTS ACK,      (* Default return value for returns with no def. value *)
-          BOT,      (* Symbolic bottom value *)
-          ProcSet,  (* Symbolic set of processes *)
-          RegDomain (* Domain of register values *)
+CONSTANTS 
+  ACK,      (* Default return value for returns with no def. value *)
+  BOT,      (* Symbolic bottom value *)
+  ProcSet,  (* Symbolic set of processes *)
+  RegDomain (* Domain of register values *)
 
 (***************************************************************************)
 (* Operations and arguments                                                *)
 (***************************************************************************)
 OpNames == {"Read", "Write"}
-ArgsOf(op) == CASE op = "Read"  -> {BOT}
-                [] op = "Write" -> [newval: RegDomain]
                 
+ArgsOf(op) ==
+  CASE op = "Read"  -> {BOT}
+    [] op = "Write" -> [newval: RegDomain]
+    
+RetsOf(op) ==
+  CASE op = "Read"  -> RegDomain
+    [] op = "Write" -> {ACK}
+
 (***************************************************************************)
-(* Domain of configurations                                                *)
+(* State domain and initial state                                          *)
 (***************************************************************************)
 StateDomain == RegDomain
-OpDomain    == OpNames \union {BOT}
-ArgDomain   == [newval: RegDomain] \union {BOT}
-RetDomain   == RegDomain \union {ACK}
-ResDomain   == RetDomain \union {BOT}
-
-ConfigDomain == [state: StateDomain, 
-                 op: [ProcSet -> OpDomain], 
-                 arg: [ProcSet -> ArgDomain], 
-                 res: [ProcSet -> ResDomain]]
+InitState == CHOOSE val \in StateDomain : TRUE  (* Arbitr. RegDomain val *)
 
 (***************************************************************************)
 (* Transition relation                                                     *)
@@ -40,16 +39,26 @@ ConfigDomain == [state: StateDomain,
 (* to configuration d.                                                     *)
 (***************************************************************************)
 Delta(c, p, d) == 
-    CASE (c.op[p] = "Read" /\ c.arg[p] = BOT /\ c.res[p] = BOT)
-      -> /\ d.state = c.state
-         /\ d.op    = c.op
-         /\ d.arg   = c.arg
-         /\ d.res   = [c.res EXCEPT ![p] = c.state]
-      [] (c.op[p] = "Write" /\ c.arg[p].newval \in RegDomain /\ c.res[p] = BOT)
-      -> /\ d.state = c.arg[p].newval
-         /\ d.op    = c.op
-         /\ d.arg   = c.arg
-         /\ d.res   = [c.res EXCEPT ![p] = ACK]
-      [] OTHER -> FALSE
+  CASE (c.op[p] = "Read")
+    -> /\ c.arg[p] \in ArgsOf("Read")
+       /\ c.res[p] = BOT
+       /\ d.state  = c.state
+       /\ d.op     = c.op
+       /\ d.arg    = c.arg
+       /\ d.res    = [c.res EXCEPT ![p] = c.state]
+    [] (c.op[p] = "Write")
+    -> /\ c.arg[p] \in ArgsOf("Write")
+       /\ c.res[p] = BOT
+       /\ d.state  = c.arg[p].newval
+       /\ d.op     = c.op
+       /\ d.arg    = c.arg
+       /\ d.res    = [c.res EXCEPT ![p] = ACK]
+    [] OTHER 
+    -> FALSE
+
+(***************************************************************************)
+(* Instantiate the meta-configuration tracking module                      *)
+(***************************************************************************)
+INSTANCE MCTracking
 
 =============================================================================
