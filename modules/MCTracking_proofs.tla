@@ -1,6 +1,8 @@
 ------------------------- MODULE MCTracking_proofs --------------------------
 (***************************************************************************)
-(* This module contains proofs of the theorems in the MCTracking module.   *)
+(* This module defines the machinery needed to implement metaconfiguration *)
+(* tracking, namely the invocation, evolution and filtering of             *)
+(* configurations; and includes theorems about these operations.           *)
 (***************************************************************************)
 (* Author: Ugur Y. Yavuz (Boston University)                               *)
 (* Last updated: 2025-08-05                                                *)
@@ -8,6 +10,7 @@
 
 LOCAL INSTANCE Integers
 LOCAL INSTANCE Sequences
+
 CONSTANTS 
   BOT,            (* Symbolic bottom value *)
   ProcSet,        (* Symbolic set of processes *)

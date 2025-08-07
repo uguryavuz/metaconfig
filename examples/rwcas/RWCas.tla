@@ -1,6 +1,6 @@
-------------------------------- MODULE RWCAS --------------------------------
+------------------------------- MODULE RWCas --------------------------------
 (***************************************************************************)
-(* This module defines the RWCAS implementation of the read-write          *)
+(* This module defines the RWCas implementation of the read-write          *)
 (* register type.                                                          *)
 (***************************************************************************)
 (* Author: Ugur Y. Yavuz (Boston University)                               *)
@@ -10,7 +10,7 @@
 EXTENDS ReadWriteReg
 
 (***************************************************************************)
-(* RWCAS implementation                                                    *)
+(* RWCas implementation                                                    *)
 (***************************************************************************)
 VARIABLES X, x, arg, ret, pc
 implvars == <<X, x>>
