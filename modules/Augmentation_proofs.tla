@@ -1,27 +1,17 @@
----------------------------- MODULE Augmentation ----------------------------
+------------------------- MODULE Augmentation_proofs -------------------------
 (***************************************************************************)
-(* This module defines the specification and the augmented specification   *)
-(* of an algorithm whose line actions are given. Specifically,             *)
-(* - Spec is Init /\ [][Next]_vars where Init is passed in as a constant,  *)
-(*   Next is defined as the disjunction of the invocation action defn. in  *)
-(*   this module, the intermediate-line actions, and the return actions    *)
-(*   (the latter two are passed in as constants).                          *)
-(* - ASpec is AInit /\ [][ANext]_varsP where AInit and ANext are defined   *)
-(*   in this module. AInit extends Init with the initial value of the      *)
-(*   meta-configuration tracking variable P. ANext extends Next with the   *)
-(*   three update rules for P.                                             *)
+(* This module contains proofs of the theorems in the Augmentation module. *)
 (***************************************************************************)
 (* Author: Ugur Y. Yavuz (Boston University)                               *)
 (* Last updated: 2025-08-06                                                *)
 (***************************************************************************)
 
-EXTENDS MCTracking
+EXTENDS MCTracking, TLAPS
 
 CONSTANTS 
-  ImplInit,
+  Init,
   InitState,
   IntLines(_),
-  LineIDs,
   OpToInvocLine(_),
   PCtoOp(_),
   RetLines(_)
@@ -43,13 +33,6 @@ IntermAct(p) == \E LineAct \in IntLines(p) : LineAct
 
 (* Return action for process p *)
 ReturnAct(p) == \E LineAct \in RetLines(p) : LineAct
-
-(* Initial state *)
-Init == 
-  /\ ImplInit
-  /\ pc = [p \in ProcSet |-> "RM"]
-  /\ arg \in [ProcSet -> ArgDomain]
-  /\ ret \in [ProcSet -> RetDomain]
 
 (* Next-state relation *)
 Next == \E p \in ProcSet : 
@@ -102,5 +85,11 @@ ASpec == AInit /\ [][ANext]_varsP
 (* Theorem: ASpec implies Spec.                                            *)
 (***************************************************************************)
 THEOREM ASpecImpliesSpec == ASpec => Spec
+  <1>1. AInit => Init
+    BY DEF AInit
+  <1>2. [ANext]_varsP => [Next]_vars
+    BY DEF ANext, Next, varsP
+  <1> QED 
+    BY <1>1, <1>2, PTL DEF ASpec, Spec
 
 =============================================================================

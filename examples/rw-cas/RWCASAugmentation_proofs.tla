@@ -220,7 +220,7 @@ THEOREM RWCASisLinearizable == ASpec => [](P # {})
 -----------------------------------------------------------------------------
 \* WIP
 
-THEOREM SpecQInv2 == ASpec => []QInv2
+\* THEOREM SpecQInv2 == ASpec => []QInv2
 \*   <1> SUFFICES ASSUME []TypeOK, []FinActiveInv, []QInv1
 \*                PROVE  Spec => []QInv2
 \*     BY SpecTypeOK, SpecFinActiveInv, SpecQInv1, PTL
@@ -229,8 +229,12 @@ THEOREM SpecQInv2 == ASpec => []QInv2
 \*   <1> QED 
 \*     BY <1>1, <1>2, PTL DEF Spec
 
-InvProp == Spec => [][\A p \in ProcSet : InvokeAct(p) => Q' \in SUBSET Evolve(Invoke(Q, p, PCtoOp(pc'[p]), arg'[p]))]_vars
-IntProp == Spec => [][\A p \in ProcSet : IntermAct(p) => Q' \in SUBSET Evolve(Q)]_vars
-RetProp == Spec => [][\A p \in ProcSet : ReturnAct(p) => Q' \in SUBSET Filter(Evolve(Q), p, ret'[p])]_vars
+InvProp == \A p \in ProcSet : InvokeAct(p) => Q' \in SUBSET Evolve(Invoke(Q, p, PCtoOp(pc'[p]), arg'[p]))
+IntProp == \A p \in ProcSet : IntermAct(p) => Q' \in SUBSET Evolve(Q)
+RetProp == \A p \in ProcSet : ReturnAct(p) => Q' \in SUBSET Filter(Evolve(Q), p, ret'[p])
+
+\* InvProp == Spec => [][\A p \in ProcSet : InvokeAct(p) => Q' \in SUBSET Evolve(Invoke(Q, p, PCtoOp(pc'[p]), arg'[p]))]_vars
+\* IntProp == Spec => [][\A p \in ProcSet : IntermAct(p) => Q' \in SUBSET Evolve(Q)]_vars
+\* RetProp == Spec => [][\A p \in ProcSet : ReturnAct(p) => Q' \in SUBSET Filter(Evolve(Q), p, ret'[p])]_vars
 
 =============================================================================

@@ -1,32 +1,21 @@
----------------------------- MODULE Augmentation ----------------------------
-(***************************************************************************)
-(* This module defines the specification and the augmented specification   *)
-(* of an algorithm whose line actions are given. Specifically,             *)
-(* - Spec is Init /\ [][Next]_vars where Init is passed in as a constant,  *)
-(*   Next is defined as the disjunction of the invocation action defn. in  *)
-(*   this module, the intermediate-line actions, and the return actions    *)
-(*   (the latter two are passed in as constants).                          *)
-(* - ASpec is AInit /\ [][ANext]_varsP where AInit and ANext are defined   *)
-(*   in this module. AInit extends Init with the initial value of the      *)
-(*   meta-configuration tracking variable P. ANext extends Next with the   *)
-(*   three update rules for P.                                             *)
-(***************************************************************************)
-(* Author: Ugur Y. Yavuz (Boston University)                               *)
-(* Last updated: 2025-08-06                                                *)
-(***************************************************************************)
+------------------------ MODULE RWCASLinearizability ------------------------
+EXTENDS RWCAS
+INSTANCE MCTracking
 
-EXTENDS MCTracking
+\* CONSTANTS 
+\*   ImplInit, (* RWCAS *)
+\*   InitState, (* RWCAS <- ReadWriteReg *)
+\*   IntLines(_), (* RWCAS *)
+\*   LineIDs, (* RWCAS *)
+\*   OpToInvocLine(_), (* RWCAS *)
+\*   PCtoOp(_), (* RWCAS *)
+\*   RetLines(_) (* RWCAS *)
 
-CONSTANTS 
-  ImplInit,
-  InitState,
-  IntLines(_),
-  LineIDs,
-  OpToInvocLine(_),
-  PCtoOp(_),
-  RetLines(_)
+\* VARIABLES implvars, arg, ret, pc, P
+\* vars == <<implvars, arg, ret, pc>>
+\* varsP == <<vars, P>>
 
-VARIABLES implvars, arg, ret, pc, P
+VARIABLE P
 vars == <<implvars, arg, ret, pc>>
 varsP == <<vars, P>>
 

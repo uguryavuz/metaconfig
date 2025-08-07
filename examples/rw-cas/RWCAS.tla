@@ -52,12 +52,9 @@ W3(p) ==
   /\ ret' = [ret EXCEPT ![p] = ACK]
   /\ UNCHANGED <<X, x, arg>>
 
-Init == 
-  /\ pc = [p \in ProcSet |-> "RM"]
-  /\ X = InitState (* From ReadWriteReg *)
+ImplInit == 
+  /\ X = InitState
   /\ x \in [ProcSet -> RegDomain]
-  /\ arg \in [ProcSet -> ArgDomain]
-  /\ ret \in [ProcSet -> RetDomain]
 
 (************************************************************************)
 (* Correspondence between operations and line identifiers               *)
