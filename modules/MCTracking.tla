@@ -8,8 +8,7 @@
 (* Last updated: 2025-08-05                                                *)
 (***************************************************************************)
 
-LOCAL INSTANCE Integers
-LOCAL INSTANCE Sequences
+EXTENDS Integers, Sequences
 
 CONSTANTS 
   BOT,            (* Symbolic bottom value *)
@@ -91,14 +90,14 @@ Filter(pset, p, ret) ==
 (*          alpha_2, then c transitions to e via alpha_1 \o alpha_2.       *)
 (***************************************************************************)
 THEOREM SplitTransitionSeq ==
-   ASSUME NEW c \in ConfigDomain,
-          NEW d \in ConfigDomain,
-          NEW e \in ConfigDomain,
-          NEW alpha_1 \in Seq(ProcSet),
-          NEW alpha_2 \in Seq(ProcSet),
-          TransitionsOK(c, alpha_1, d),
-          TransitionsOK(d, alpha_2, e)
-   PROVE  TransitionsOK(c, alpha_1 \o alpha_2, e)
+    ASSUME NEW c \in ConfigDomain,
+           NEW d \in ConfigDomain,
+           NEW e \in ConfigDomain,
+           NEW alpha_1 \in Seq(ProcSet),
+           NEW alpha_2 \in Seq(ProcSet),
+           TransitionsOK(c, alpha_1, d),
+           TransitionsOK(d, alpha_2, e)
+    PROVE  TransitionsOK(c, alpha_1 \o alpha_2, e)
 
 (***************************************************************************)
 (* Evolve theorems                                                         *)
@@ -108,35 +107,33 @@ THEOREM SplitTransitionSeq ==
 (* Theorem: If c is in P, then c is in Evolve(P).                          *)
 (***************************************************************************)
 THEOREM EmptySeqEvolve == 
-   ASSUME NEW pset \in SUBSET ConfigDomain,
-          NEW c \in ConfigDomain,
-          c \in pset
-   PROVE  c \in Evolve(pset)
+    ASSUME NEW pset \in SUBSET ConfigDomain,
+           NEW c \in ConfigDomain,
+           c \in pset
+    PROVE  c \in Evolve(pset)
 
 (***************************************************************************)
 (* Theorem: If c is in P and c transitions to d via a process p, then d is *)
 (*          in Evolve(P).                                                  *)
 (***************************************************************************)
 THEOREM SingleDeltaEvolve == 
-   ASSUME NEW pset \in SUBSET ConfigDomain,
-          NEW c \in ConfigDomain,
-          NEW d \in ConfigDomain,
-          NEW p \in ProcSet,
-          c \in pset,
-          Delta(c, p, d)
-   PROVE  d \in Evolve(pset)
+    ASSUME NEW pset \in SUBSET ConfigDomain,
+           NEW c \in ConfigDomain,
+           NEW d \in ConfigDomain,
+           NEW p \in ProcSet,
+           c \in pset,
+           Delta(c, p, d)
+    PROVE  d \in Evolve(pset)
 
 (***************************************************************************)
 (* Theorem: If c is in Evolve(P_1) where P_1 is a subset of P_2, then c is *)
 (*          also in Evolve(P_2).                                           *)
 (***************************************************************************) 
 THEOREM EvolveForSubset ==
-   ASSUME NEW pset_sub \in SUBSET ConfigDomain,
-          NEW pset_main \in SUBSET ConfigDomain,
-          pset_sub \in SUBSET pset_main,
-          NEW c \in ConfigDomain,
-          c \in Evolve(pset_sub)
-   PROVE  c \in Evolve(pset_main)
+    ASSUME NEW pset_sub, 
+           NEW pset_main,
+           pset_sub \in SUBSET pset_main
+    PROVE  Evolve(pset_sub) \in SUBSET Evolve(pset_main)
 
 (***************************************************************************)
 (* Invoke theorems                                                         *)
@@ -148,17 +145,17 @@ THEOREM EvolveForSubset ==
 (*          with op and arg is in P.                                       *)
 (***************************************************************************)
 THEOREM InvokeFromUninvoked ==
-   ASSUME NEW pset \in SUBSET ConfigDomain,
-          NEW p \in ProcSet, NEW op, NEW arg,
-          NEW c \in ConfigDomain,
-          c.op[p] = op,
-          c.arg[p] = arg,
-          c.res[p] = BOT,
-          NEW c_prev,
-          c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = BOT], 
-                             !.arg = [c.arg EXCEPT ![p] = BOT]],
-          c_prev \in pset
-   PROVE  c \in Invoke(pset, p, op, arg)
+    ASSUME NEW pset \in SUBSET ConfigDomain,
+           NEW p \in ProcSet, NEW op, NEW arg,
+           NEW c \in ConfigDomain,
+           c.op[p] = op,
+           c.arg[p] = arg,
+           c.res[p] = BOT,
+           NEW c_prev,
+           c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = BOT], 
+                              !.arg = [c.arg EXCEPT ![p] = BOT]],
+           c_prev \in pset
+    PROVE  c \in Invoke(pset, p, op, arg)
 
 (***************************************************************************)
 (* Theorem: To show that c is in Evolve(Invoke(P, p, op, arg)) it          *)
@@ -166,30 +163,27 @@ THEOREM InvokeFromUninvoked ==
 (*          before invoking with op and arg is in P.                       *)
 (***************************************************************************)
 THEOREM InvokeAndEvolveFromUninvoked ==
-   ASSUME NEW pset \in SUBSET ConfigDomain,
-          NEW p \in ProcSet, NEW op, NEW arg,
-          NEW c \in ConfigDomain,
-          c.op[p] = op,
-          c.arg[p] = arg,
-          c.res[p] = BOT,
-          NEW c_prev,
-          c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = BOT], 
-                             !.arg = [c.arg EXCEPT ![p] = BOT]],
-          c_prev \in pset
-   PROVE  c \in Evolve(Invoke(pset, p, op, arg))
+    ASSUME NEW pset \in SUBSET ConfigDomain,
+           NEW p \in ProcSet, NEW op, NEW arg,
+           NEW c \in ConfigDomain,
+           c.op[p] = op,
+           c.arg[p] = arg,
+           c.res[p] = BOT,
+           NEW c_prev,
+           c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = BOT], 
+                              !.arg = [c.arg EXCEPT ![p] = BOT]],
+           c_prev \in pset
+    PROVE  c \in Evolve(Invoke(pset, p, op, arg))
 
 (***************************************************************************)
 (* Theorem: If c is in Invoke(P_1, p, op, arg) with P_1 a subset of P_2,   *)
 (*          then c is also in Invoke(P_2, p, op, arg).                     *)
 (***************************************************************************)
 THEOREM InvokeForSubset == 
-   ASSUME NEW pset_sub \in SUBSET ConfigDomain,
-          NEW pset_main \in SUBSET ConfigDomain,
-          pset_sub \in SUBSET pset_main,
-          NEW p, NEW op, NEW arg,
-          NEW c \in ConfigDomain,
-          c \in Invoke(pset_sub, p, op, arg)
-   PROVE  c \in Invoke(pset_main, p, op, arg)
+    ASSUME NEW pset_sub, NEW pset_main,
+           pset_sub \in SUBSET pset_main,
+           NEW p, NEW op, NEW arg
+    PROVE  Invoke(pset_sub, p, op, arg) \in SUBSET Invoke(pset_main, p, op, arg)
 
 (***************************************************************************)
 (* Filter theorems                                                         *)
@@ -201,18 +195,18 @@ THEOREM InvokeForSubset ==
 (*          filter is applied is in P for p the return value ret.          *)
 (***************************************************************************)
 THEOREM FilterFromUnfiltered ==
-   ASSUME NEW pset \in SUBSET ConfigDomain,
-          NEW p \in ProcSet, NEW op, NEW arg, NEW ret,
-          NEW c \in ConfigDomain,
-          c.op[p] = BOT,
-          c.arg[p] = BOT,
-          c.res[p] = BOT,
-          NEW c_prev,
-          c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = op], 
-                             !.arg = [c.arg EXCEPT ![p] = arg],
-                             !.res = [c.res EXCEPT ![p] = ret]],
-          c_prev \in pset
-   PROVE  c \in Filter(pset, p, ret)
+    ASSUME NEW pset \in SUBSET ConfigDomain,
+           NEW p \in ProcSet, NEW op, NEW arg, NEW ret,
+           NEW c \in ConfigDomain,
+           c.op[p] = BOT,
+           c.arg[p] = BOT,
+           c.res[p] = BOT,
+           NEW c_prev,
+           c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = op], 
+                              !.arg = [c.arg EXCEPT ![p] = arg],
+                              !.res = [c.res EXCEPT ![p] = ret]],
+           c_prev \in pset
+    PROVE  c \in Filter(pset, p, ret)
 
 (***************************************************************************)
 (* Theorem: To show that c is in Filter(Evolve(P), p, ret) it suffices to  *)
@@ -220,30 +214,27 @@ THEOREM FilterFromUnfiltered ==
 (*          filter is applied is in P for p the return value ret.          *)
 (***************************************************************************)
 THEOREM EvolveAndFilterFromUnfiltered ==
-   ASSUME NEW pset \in SUBSET ConfigDomain,
-          NEW p \in ProcSet, NEW op, NEW arg, NEW ret,
-          NEW c \in ConfigDomain,
-          c.op[p] = BOT,
-          c.arg[p] = BOT,
-          c.res[p] = BOT,
-          NEW c_prev,
-          c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = op], 
-                             !.arg = [c.arg EXCEPT ![p] = arg],
-                             !.res = [c.res EXCEPT ![p] = ret]],
-          c_prev \in pset
-   PROVE  c \in Filter(Evolve(pset), p, ret)
+    ASSUME NEW pset \in SUBSET ConfigDomain,
+           NEW p \in ProcSet, NEW op, NEW arg, NEW ret,
+           NEW c \in ConfigDomain,
+           c.op[p] = BOT,
+           c.arg[p] = BOT,
+           c.res[p] = BOT,
+           NEW c_prev,
+           c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = op], 
+                              !.arg = [c.arg EXCEPT ![p] = arg],
+                              !.res = [c.res EXCEPT ![p] = ret]],
+           c_prev \in pset
+    PROVE  c \in Filter(Evolve(pset), p, ret)
 
 (***************************************************************************)
 (* Theorem: If c is in Filter(P_1, p, ret) with P_1 a subset of P_2,       *)
 (*          then c is also in Filter(P_2, p, ret).                         *)
 (***************************************************************************)
 THEOREM FilterForSubset ==
-   ASSUME NEW pset_sub \in SUBSET ConfigDomain,
-          NEW pset_main \in SUBSET ConfigDomain,
-          pset_sub \in SUBSET pset_main,
-          NEW p \in ProcSet, NEW ret,
-          NEW c \in ConfigDomain,
-          c \in Filter(pset_sub, p, ret)
-   PROVE  c \in Filter(pset_main, p, ret)
+    ASSUME NEW pset_sub, NEW pset_main,
+           pset_sub \in SUBSET pset_main,
+           NEW p, NEW ret
+    PROVE  Filter(pset_sub, p, ret) \in SUBSET Filter(pset_main, p, ret)
 
 =============================================================================

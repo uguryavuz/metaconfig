@@ -8,8 +8,7 @@
 (* Last updated: 2025-08-05                                                *)
 (***************************************************************************)
 
-LOCAL INSTANCE Integers
-LOCAL INSTANCE Sequences
+EXTENDS Integers, Sequences
 
 CONSTANTS 
   BOT,            (* Symbolic bottom value *)
@@ -197,12 +196,10 @@ THEOREM SingleDeltaEvolve ==
 (*          also in Evolve(P_2).                                           *)
 (***************************************************************************) 
 THEOREM EvolveForSubset ==
-    ASSUME NEW pset_sub \in SUBSET ConfigDomain,
-           NEW pset_main \in SUBSET ConfigDomain,
-           pset_sub \in SUBSET pset_main,
-           NEW c \in ConfigDomain,
-           c \in Evolve(pset_sub)
-    PROVE  c \in Evolve(pset_main)
+    ASSUME NEW pset_sub, 
+           NEW pset_main,
+           pset_sub \in SUBSET pset_main
+    PROVE  Evolve(pset_sub) \in SUBSET Evolve(pset_main)
   BY DEF Evolve
 
 (***************************************************************************)
@@ -252,13 +249,10 @@ THEOREM InvokeAndEvolveFromUninvoked ==
 (*          then c is also in Invoke(P_2, p, op, arg).                     *)
 (***************************************************************************)
 THEOREM InvokeForSubset == 
-    ASSUME NEW pset_sub \in SUBSET ConfigDomain,
-           NEW pset_main \in SUBSET ConfigDomain,
+    ASSUME NEW pset_sub, NEW pset_main,
            pset_sub \in SUBSET pset_main,
-           NEW p, NEW op, NEW arg,
-           NEW c \in ConfigDomain,
-           c \in Invoke(pset_sub, p, op, arg)
-    PROVE  c \in Invoke(pset_main, p, op, arg)
+           NEW p, NEW op, NEW arg
+    PROVE  Invoke(pset_sub, p, op, arg) \in SUBSET Invoke(pset_main, p, op, arg)
   BY DEF Invoke
 
 (***************************************************************************)
@@ -310,13 +304,10 @@ THEOREM EvolveAndFilterFromUnfiltered ==
 (*          then c is also in Filter(P_2, p, ret).                         *)
 (***************************************************************************)
 THEOREM FilterForSubset ==
-    ASSUME NEW pset_sub \in SUBSET ConfigDomain,
-           NEW pset_main \in SUBSET ConfigDomain,
+    ASSUME NEW pset_sub, NEW pset_main,
            pset_sub \in SUBSET pset_main,
-           NEW p \in ProcSet, NEW ret,
-           NEW c \in ConfigDomain,
-           c \in Filter(pset_sub, p, ret)
-    PROVE  c \in Filter(pset_main, p, ret)
+           NEW p, NEW ret
+    PROVE  Filter(pset_sub, p, ret) \in SUBSET Filter(pset_main, p, ret)
   BY DEF Filter
 
 =============================================================================

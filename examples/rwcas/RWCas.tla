@@ -60,8 +60,8 @@ ImplInit ==
 (* Correspondence between operations and line identifiers               *)
 (************************************************************************)
 
-(* Invocation lines *)
-OpToInvocLine(op) == 
+(* First line of each operation *)
+OpToFirstLine(op) == 
   CASE op = "Read"  -> "R1"
     [] op = "Write" -> "W1"
 
@@ -75,9 +75,9 @@ PCtoOp(pcp) ==
 LineIDs == {"R1", "R2", "W1", "W2", "W3", "RM"}
 
 (* Intermediate line actions for given process *)
-IntLines(p) == {R1(p), W1(p), W2(p)}
+InterLines(p) == {R1(p), W1(p), W2(p)}
 
 (* Return line actions for given process *)
-RetLines(p) == {R2(p), W3(p)}
+ReturnLines(p) == {R2(p), W3(p)}
 
 ==========================================================================
