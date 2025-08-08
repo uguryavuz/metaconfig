@@ -106,6 +106,13 @@ THEOREM ASpecImpliesSpec == ASpec => Spec
 
 
 
+
+
+
+
+
+
+
 -----------------------------------------------------------------------------
 (***************************************************************************)
 (* INVARIANTS                                                              *)
@@ -113,52 +120,146 @@ THEOREM ASpecImpliesSpec == ASpec => Spec
 
 
 
------------------------------------------------------------------------------
-(***************************************************************************)
-(* PLAUSIBILITY SET DEFINITION AND INVARIANTS                              *)
-(***************************************************************************)
 
+
+
+
+
+
+
+-----------------------------------------------------------------------------
 (***************************************************************************)
 (* Plausibility set definition                                             *)
 (***************************************************************************)
 Q == {c \in ConfigDomain : FALSE}
 
+
+
+
+
+
+
+
+
+
+-----------------------------------------------------------------------------
 (***************************************************************************)
-(* Plausibility set theorem 1: Q is non-empty is an invariant of Spec.     *)
+(* Plausibility set theorem 1: Q is non-empty is an invariant of ASpec.    *)
 (***************************************************************************)
+THEOREM PlausSetThm1 == ASpec => [](Q # {})
 
-THEOREM PlausSetThm1 == 
-    Spec => [](Q # {})
 
-LEMMA PlausSetInitLemma == 
-    AInit => Q = P
 
+
+
+
+
+
+
+
+-----------------------------------------------------------------------------
+(***************************************************************************)
+(* Plausibility set lemma 2.1: Q is initally the same as the singleton P.  *)
+(***************************************************************************)
+LEMMA PlausSetInitLemma == AInit => Q = P
+
+
+
+
+
+
+
+
+
+
+-----------------------------------------------------------------------------
+(***************************************************************************)
+(* Plausibility set lemma 2.2: If an invocation action takes place, then   *)
+(* the new plausibility set Q' is a subset of the evolution of             *)
+(* Invoke(Q, p, PCtoOp(pc'[p]), arg'[p]).                                  *)
+(***************************************************************************)
+(* Note that PCtoOp(pc'[p]) is the operation being invoked by p, and       *)
+(* arg'[p] is the argument that was picked for the invocation.             *)
+(***************************************************************************)
 InvocProperty == 
   \A p \in ProcSet : InvocAct(p) => (Q' \in SUBSET Evolve(Invoke(Q, p, PCtoOp(pc'[p]), arg'[p])))
+LEMMA InvocLemma == ASpec => [][InvocProperty]_varsP
 
-LEMMA InvocLemma == 
-    ASpec => [][InvocProperty]_varsP
 
-InterProperty == 
-  \A p \in ProcSet : InterAct(p) => (Q' \in SUBSET Evolve(Q))
 
-LEMMA InterLemma == 
-    ASpec => [][InterProperty]_varsP
 
+
+
+
+
+
+
+-----------------------------------------------------------------------------
+(***************************************************************************)
+(* Plausibility set lemma 2.3: If an intermediate-line action takes place, *)
+(* then the new plausibility set Q' is a subset of the evolution of Q.     *)
+(***************************************************************************)
+InterProperty == \A p \in ProcSet : InterAct(p) => (Q' \in SUBSET Evolve(Q))
+LEMMA InterLemma == ASpec => [][InterProperty]_varsP
+
+
+
+
+
+
+
+
+
+
+-----------------------------------------------------------------------------
+(***************************************************************************)
+(* Plausibility set lemma 2.4: If an intermediate-line action takes place, *)
+(* then the new plausibility set Q' is a subset of the filtering of the    *)
+(* evolution of Q, where the filtering is done for process p and the value *)
+(* ret'[p] (which is the value to be returned by p).                       *)
+(***************************************************************************)
 ReturnProperty ==
   \A p \in ProcSet : ReturnAct(p) => (Q' \in SUBSET Filter(Evolve(Q), p, ret'[p]))
+LEMMA ReturnLemma == ASpec => [][ReturnProperty]_varsP
 
-LEMMA ReturnLemma == 
-    ASpec => [][ReturnProperty]_varsP
 
+
+
+
+
+
+
+
+
+
+-----------------------------------------------------------------------------
+(***************************************************************************)
+(* Plausibility set lemma 2.5: If no variable changes, Q remains the same. *)
+(***************************************************************************)
 LEMMA UnchangedLemma == UNCHANGED varsP => Q' = Q
 
+
+
+
+
+
+
+
+
+
+
+-----------------------------------------------------------------------------
+(***************************************************************************)
+(* Plausibility set theorem 2: Q is a subset of P is an invariant of ASpec.*)
+(***************************************************************************)
+(* This theorem follows automatically from the five lemmas above.          *)
+(***************************************************************************)
 THEOREM PlausSetThm2 == ASpec => [](Q \in SUBSET P)
   <1> SUFFICES ASSUME [][InvocProperty]_varsP,
                       [][InterProperty]_varsP,
                       [][ReturnProperty]_varsP
                PROVE  ASpec => [](Q \in SUBSET P)
-    BY ASpecImpliesSpec, InvocLemma, InterLemma, ReturnLemma
+    BY InvocLemma, InterLemma, ReturnLemma
   <1>1. AInit => Q \in SUBSET P 
     BY PlausSetInitLemma
   <1>2. (Q \in SUBSET P) /\ [ANext]_varsP => (Q \in SUBSET P)'
@@ -221,7 +322,6 @@ THEOREM PlausSetThm2 == ASpec => [](Q \in SUBSET P)
 (***************************************************************************)
 (* META-CONFIGURATION TRACKING LINEARIZABILITY INVARIANT                   *)
 (***************************************************************************)
-
 THEOREM Linearizability == ASpec => [](P # {})
   <1> SUFFICES ASSUME [](Q # {}), [](Q \in SUBSET P)
                PROVE  ASpec => [](P # {})
