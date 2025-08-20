@@ -11,7 +11,6 @@
 EXTENDS Integers, Sequences
 
 CONSTANTS 
-  BOT,            (* Symbolic bottom value *)
   ProcSet,        (* Symbolic set of processes *)
   StateDomain,
   OpNames,
@@ -22,10 +21,10 @@ CONSTANTS
 (***************************************************************************)
 (* Domain of configurations                                                *)
 (***************************************************************************)
-OpDomain == OpNames \union {BOT}
-ArgDomain == (UNION {ArgsOf(op) : op \in OpNames}) \union {BOT}
+OpDomain == OpNames \union {"BOT"}
+ArgDomain == (UNION {ArgsOf(op) : op \in OpNames}) \union {"BOT"}
 RetDomain == (UNION {RetsOf(op) : op \in OpNames})
-ResDomain == (UNION {RetsOf(op) : op \in OpNames}) \union {BOT}
+ResDomain == (UNION {RetsOf(op) : op \in OpNames}) \union {"BOT"}
 ConfigDomain == 
   [state: StateDomain, 
    op: [ProcSet -> OpDomain], 
@@ -39,9 +38,9 @@ ConfigDomain ==
 (***************************************************************************)
 Invoke(pset, p, op, arg) == 
   {c \in ConfigDomain : \E c_prev \in pset : 
-    /\ c_prev.op[p] = BOT
-    /\ c_prev.arg[p] = BOT
-    /\ c_prev.res[p] = BOT
+    /\ c_prev.op[p] = "BOT"
+    /\ c_prev.arg[p] = "BOT"
+    /\ c_prev.res[p] = "BOT"
     /\ c.op  = [c_prev.op EXCEPT ![p] = op]
     /\ c.arg = [c_prev.arg EXCEPT ![p] = arg]
     /\ c.res = c_prev.res
@@ -76,9 +75,9 @@ Evolve(pset) ==
 Filter(pset, p, ret) ==
   {c \in ConfigDomain : \E c_prev \in pset :
     /\ c_prev.res[p] = ret
-    /\ c.op = [c_prev.op EXCEPT ![p] = BOT]
-    /\ c.arg = [c_prev.arg EXCEPT ![p] = BOT]
-    /\ c.res = [c_prev.res EXCEPT ![p] = BOT]
+    /\ c.op = [c_prev.op EXCEPT ![p] = "BOT"]
+    /\ c.arg = [c_prev.arg EXCEPT ![p] = "BOT"]
+    /\ c.res = [c_prev.res EXCEPT ![p] = "BOT"]
     /\ c.state = c_prev.state}
 
 -----------------------------------------------------------------------------
@@ -151,10 +150,10 @@ THEOREM InvokeFromUninvoked ==
            NEW c \in ConfigDomain,
            c.op[p] = op,
            c.arg[p] = arg,
-           c.res[p] = BOT,
+           c.res[p] = "BOT",
            NEW c_prev,
-           c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = BOT], 
-                              !.arg = [c.arg EXCEPT ![p] = BOT]],
+           c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = "BOT"], 
+                              !.arg = [c.arg EXCEPT ![p] = "BOT"]],
            c_prev \in pset
     PROVE  c \in Invoke(pset, p, op, arg)
 
@@ -169,10 +168,10 @@ THEOREM InvokeAndEvolveFromUninvoked ==
            NEW c \in ConfigDomain,
            c.op[p] = op,
            c.arg[p] = arg,
-           c.res[p] = BOT,
+           c.res[p] = "BOT",
            NEW c_prev,
-           c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = BOT], 
-                              !.arg = [c.arg EXCEPT ![p] = BOT]],
+           c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = "BOT"], 
+                              !.arg = [c.arg EXCEPT ![p] = "BOT"]],
            c_prev \in pset
     PROVE  c \in Evolve(Invoke(pset, p, op, arg))
 
@@ -199,9 +198,9 @@ THEOREM FilterFromUnfiltered ==
     ASSUME NEW pset \in SUBSET ConfigDomain,
            NEW p \in ProcSet, NEW op, NEW arg, NEW ret,
            NEW c \in ConfigDomain,
-           c.op[p] = BOT,
-           c.arg[p] = BOT,
-           c.res[p] = BOT,
+           c.op[p] = "BOT",
+           c.arg[p] = "BOT",
+           c.res[p] = "BOT",
            NEW c_prev,
            c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = op], 
                               !.arg = [c.arg EXCEPT ![p] = arg],
@@ -218,9 +217,9 @@ THEOREM EvolveAndFilterFromUnfiltered ==
     ASSUME NEW pset \in SUBSET ConfigDomain,
            NEW p \in ProcSet, NEW op, NEW arg, NEW ret,
            NEW c \in ConfigDomain,
-           c.op[p] = BOT,
-           c.arg[p] = BOT,
-           c.res[p] = BOT,
+           c.op[p] = "BOT",
+           c.arg[p] = "BOT",
+           c.res[p] = "BOT",
            NEW c_prev,
            c_prev = [c EXCEPT !.op = [c.op EXCEPT ![p] = op], 
                               !.arg = [c.arg EXCEPT ![p] = arg],

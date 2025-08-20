@@ -8,8 +8,6 @@
 (***************************************************************************)
 
 CONSTANTS 
-  ACK,      (* Default return value for returns with no def. value *)
-  BOT,      (* Symbolic bottom value *)
   ProcSet,  (* Symbolic set of processes *)
   RegDomain (* Domain of register values *)
 
@@ -19,12 +17,12 @@ CONSTANTS
 OpNames == {"Read", "Write"}
                 
 ArgsOf(op) ==
-  CASE op = "Read"  -> {BOT}
+  CASE op = "Read"  -> {"BOT"}
     [] op = "Write" -> [newval: RegDomain]
     
 RetsOf(op) ==
   CASE op = "Read"  -> RegDomain
-    [] op = "Write" -> {ACK}
+    [] op = "Write" -> {"ACK"}
 
 (***************************************************************************)
 (* State domain and initial state                                          *)
@@ -41,18 +39,18 @@ InitState == CHOOSE val \in StateDomain : TRUE  (* Arbitr. RegDomain val *)
 Delta(c, p, d) == 
   CASE (c.op[p] = "Read")
     -> /\ c.arg[p] \in ArgsOf("Read")
-       /\ c.res[p] = BOT
+       /\ c.res[p] = "BOT"
        /\ d.state  = c.state
        /\ d.op     = c.op
        /\ d.arg    = c.arg
        /\ d.res    = [c.res EXCEPT ![p] = c.state]
     [] (c.op[p] = "Write")
     -> /\ c.arg[p] \in ArgsOf("Write")
-       /\ c.res[p] = BOT
+       /\ c.res[p] = "BOT"
        /\ d.state  = c.arg[p].newval
        /\ d.op     = c.op
        /\ d.arg    = c.arg
-       /\ d.res    = [c.res EXCEPT ![p] = ACK]
+       /\ d.res    = [c.res EXCEPT ![p] = "ACK"]
     [] OTHER 
     -> FALSE
 

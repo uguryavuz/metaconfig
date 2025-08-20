@@ -49,7 +49,7 @@ W2(p) ==
 W3(p) == 
   /\ pc[p] = "W3"
   /\ pc' = [pc EXCEPT ![p] = "RM"]
-  /\ ret' = [ret EXCEPT ![p] = ACK]
+  /\ ret' = [ret EXCEPT ![p] = "ACK"]
   /\ UNCHANGED <<X, x, arg>>
 
 ImplInit == 
@@ -70,7 +70,7 @@ OpToFirstLine(op) ==
 PCtoOp(pcp) == 
   CASE pcp \in {"R1", "R2"} -> "Read"
     [] pcp \in {"W1", "W2", "W3"} -> "Write"
-    [] pcp = "RM" -> BOT
+    [] pcp = "RM" -> "BOT"
 
 (* Line identifiers *)
 LineIDs == {"R1", "R2", "W1", "W2", "W3", "RM"}
