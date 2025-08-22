@@ -1,6 +1,5 @@
 ----------------------------- MODULE RWCasProof -----------------------------
-(***************************************************************************)
-EXTENDS RWCas, FiniteSetTheorems, FinitePermutations, TLAPS
+EXTENDS RWCas, TLAPS, FiniteSetTheorems, FinitePermutations
 INSTANCE MCTracking
 
 VARIABLE P
@@ -26,7 +25,6 @@ Init ==
   /\ ImplInit
   /\ pc = [p \in ProcSet |-> "RM"]
   /\ arg \in [ProcSet -> ArgDomain]
-  \* /\ arg = [p \in ProcSet |-> "BOT"]
   /\ ret \in [ProcSet -> RetDomain]
 
 (* Next-state relation *)
@@ -97,6 +95,8 @@ ASSUME RegDomainNE == RegDomain # {}
 (***************************************************************************)
 (* INVARIANTS                                                              *)
 (***************************************************************************)
+
+(* Type correctness invariant *)
 TypeOK == /\ X \in RegDomain
           /\ x \in [ProcSet -> RegDomain]
           /\ arg \in [ProcSet -> ArgDomain]
@@ -145,6 +145,7 @@ LEMMA SpecTypeOK == Spec => []TypeOK
   <1> QED
     BY <1>1, <1>2, PTL DEF Spec
 
+(* Finite active processes invariant *)
 FinActive == IsFiniteSet({q \in ProcSet : pc[q] # "RM"})
 
 LEMMA SpecFinActive == Spec => []FinActive
@@ -229,6 +230,8 @@ Q == {c \in ConfigDomain :
 (***************************************************************************)
 (* Plausibility set theorem 1: Q is non-empty is an invariant of ASpec.    *)
 (***************************************************************************)
+
+(* Helper lemma: TypeOK suffices to show Q is non-empty *)
 LEMMA TypeOKImpliesQNE == TypeOK => Q # {}
   <1> SUFFICES ASSUME TypeOK 
                PROVE  Q # {}
@@ -254,7 +257,6 @@ LEMMA TypeOKImpliesQNE == TypeOK => Q # {}
   <1> QED
     BY <1>1, <1>5, Zenon DEF Q, PCtoOp, TypeOK
 
-
 THEOREM PlausSetThm1 == ASpec => [](Q # {})
   <1> SUFFICES Spec => [](Q # {})
     BY ASpecImpliesSpec
@@ -267,7 +269,7 @@ THEOREM PlausSetThm1 == ASpec => [](Q # {})
 (***************************************************************************)
 (* Plausibility set lemma 2.1: Q is initally the same as the singleton P.  *)
 (***************************************************************************)
-LEMMA PlausSetInitLemma == AInit => Q = P
+THEOREM PlausSetInitLemma == AInit => Q = P
   <1> SUFFICES ASSUME AInit
                PROVE  Q = P
     OBVIOUS
@@ -314,7 +316,7 @@ LEMMA PlausSetInitLemma == AInit => Q = P
 InvocProperty == 
   \A p \in ProcSet : InvocAct(p) => (Q' \in SUBSET Evolve(Invoke(Q, p, PCtoOp(pc'[p]), arg'[p])))
 
-LEMMA InvocLemma == ASpec => [][InvocProperty]_varsP
+THEOREM InvocLemma == ASpec => [][InvocProperty]_varsP
   <1> SUFFICES ASSUME []TypeOK
                PROVE  ASpec => [][InvocProperty]_varsP
     BY ASpecImpliesSpec, SpecTypeOK
@@ -440,7 +442,7 @@ LEMMA InvocLemma == ASpec => [][InvocProperty]_varsP
 (***************************************************************************)
 InterProperty == \A p \in ProcSet : InterAct(p) => (Q' \in SUBSET Evolve(Q))
 
-LEMMA InterLemma == ASpec => [][InterProperty]_varsP
+THEOREM InterLemma == ASpec => [][InterProperty]_varsP
   <1> SUFFICES ASSUME []TypeOK, []FinActive
                PROVE  ASpec => [][InterProperty]_varsP
     BY ASpecImpliesSpec, SpecTypeOK, SpecFinActive
@@ -910,7 +912,7 @@ LEMMA InterLemma == ASpec => [][InterProperty]_varsP
 ReturnProperty ==
   \A p \in ProcSet : ReturnAct(p) => (Q' \in SUBSET Filter(Evolve(Q), p, ret'[p]))
 
-LEMMA ReturnLemma == ASpec => [][ReturnProperty]_varsP
+THEOREM ReturnLemma == ASpec => [][ReturnProperty]_varsP
   <1> SUFFICES ASSUME []TypeOK
                PROVE  ASpec => [][ReturnProperty]_varsP
     BY ASpecImpliesSpec, SpecTypeOK
@@ -1076,7 +1078,7 @@ LEMMA ReturnLemma == ASpec => [][ReturnProperty]_varsP
 (***************************************************************************)
 (* Plausibility set lemma 2.5: If no variable changes, Q remains the same. *)
 (***************************************************************************)
-LEMMA UnchangedLemma == UNCHANGED varsP => Q' = Q
+THEOREM UnchangedLemma == UNCHANGED varsP => Q' = Q
   BY DEF varsP, vars, implvars, Q
 
 -----------------------------------------------------------------------------
