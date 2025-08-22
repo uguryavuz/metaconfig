@@ -1,20 +1,7 @@
 ----------------------------- MODULE RWCasProof -----------------------------
 (***************************************************************************)
-EXTENDS RWCas, TLAPS
+EXTENDS RWCas, FiniteSetTheorems, FinitePermutations, TLAPS
 INSTANCE MCTracking
-
-\* CONSTANTS 
-\*   ImplInit, (* RWCAS *)
-\*   InitState, (* RWCAS <- ReadWriteReg *)
-\*   InterLines(_), (* RWCAS *)
-\*   LineIDs, (* RWCAS *)
-\*   OpToFirstLine(_), (* RWCAS *)
-\*   PCtoOp(_), (* RWCAS *)
-\*   ReturnLines(_) (* RWCAS *)
-
-\* VARIABLES implvars, arg, ret, pc, P
-\* vars == <<implvars, arg, ret, pc>>
-\* varsP == <<vars, P>>
 
 VARIABLE P
 vars == <<implvars, arg, ret, pc>>
@@ -106,14 +93,6 @@ THEOREM ASpecImpliesSpec == ASpec => Spec
 (***************************************************************************)
 ASSUME RegDomainNE == RegDomain # {}
 
-
-
-
-
-
-
-
-
 -----------------------------------------------------------------------------
 (***************************************************************************)
 (* INVARIANTS                                                              *)
@@ -161,6 +140,68 @@ LEMMA SpecTypeOK == Spec => []TypeOK
         BY <2>3, <3>1, <3>2 DEF ReturnLines
     <2>4. CASE UNCHANGED vars
       BY <2>4 DEF vars, implvars, TypeOK
+    <2>5. QED
+      BY <2>1, <2>2, <2>3, <2>4 DEF InterAct, Next, ReturnAct
+  <1> QED
+    BY <1>1, <1>2, PTL DEF Spec
+
+FinActive == IsFiniteSet({q \in ProcSet : pc[q] # "RM"})
+
+LEMMA SpecFinActive == Spec => []FinActive
+  <1> SUFFICES ASSUME []TypeOK
+               PROVE  Spec => []FinActive
+    BY SpecTypeOK
+  <1>1. Init => FinActive
+    BY FS_EmptySet DEF Init, FinActive
+  <1>2. FinActive /\ [Next]_vars => FinActive'
+    <2> SUFFICES ASSUME FinActive,
+                        [Next]_vars
+                 PROVE  FinActive'
+      OBVIOUS
+    <2>1. ASSUME NEW p \in ProcSet,
+                 InvocAct(p)
+          PROVE  FinActive'
+      <3> USE <2>1 DEF InvocAct
+      <3>1. TypeOK
+        BY PTL
+      <3>2. {q \in ProcSet : pc'[q] # "RM"} \in SUBSET {q \in ProcSet : pc[q] # "RM" \/ q = p}
+        BY <3>1 DEF TypeOK
+      <3>3. IsFiniteSet({q \in ProcSet : pc[q] # "RM"} \union {p})
+        BY FS_Union, FS_Singleton DEF FinActive
+      <3>4. IsFiniteSet({q \in ProcSet : pc'[q] # "RM"})
+        BY FS_Subset, <3>2, <3>3
+      <3> QED
+        BY <3>4 DEF FinActive
+    <2>2. ASSUME NEW p \in ProcSet,
+                 NEW LineAct \in InterLines(p),
+                 LineAct
+          PROVE  FinActive'
+      <3>1. TypeOK
+        BY PTL
+      <3> USE <3>1
+      <3>2. CASE R1(p)
+        BY <3>2, FS_Subset DEF FinActive, TypeOK, R1
+      <3>3. CASE W1(p)
+        BY <3>3, FS_Subset DEF FinActive, TypeOK, W1
+      <3>4. CASE W2(p)
+        BY <3>4, FS_Subset DEF FinActive, TypeOK, W2
+      <3> QED
+        BY <2>2, <3>2, <3>3, <3>4 DEF InterLines
+    <2>3. ASSUME NEW p \in ProcSet,
+                 NEW LineAct \in ReturnLines(p),
+                 LineAct
+          PROVE  FinActive'
+      <3>1. TypeOK
+        BY PTL
+      <3> USE <3>1
+      <3>2. CASE R2(p)
+        BY <3>2, FS_Subset DEF FinActive, TypeOK, R2
+      <3>3. CASE W3(p)
+        BY <3>3, FS_Subset DEF FinActive, TypeOK, W3
+      <3> QED
+        BY <2>3, <3>2, <3>3 DEF ReturnLines
+    <2>4. CASE UNCHANGED vars
+      BY <2>4 DEF vars, FinActive
     <2>5. QED
       BY <2>1, <2>2, <2>3, <2>4 DEF InterAct, Next, ReturnAct
   <1> QED
@@ -400,9 +441,9 @@ LEMMA InvocLemma == ASpec => [][InvocProperty]_varsP
 InterProperty == \A p \in ProcSet : InterAct(p) => (Q' \in SUBSET Evolve(Q))
 
 LEMMA InterLemma == ASpec => [][InterProperty]_varsP
-  <1> SUFFICES ASSUME []TypeOK
+  <1> SUFFICES ASSUME []TypeOK, []FinActive
                PROVE  ASpec => [][InterProperty]_varsP
-    BY ASpecImpliesSpec, SpecTypeOK
+    BY ASpecImpliesSpec, SpecTypeOK, SpecFinActive
   <1> SUFFICES ASSUME ANext
                PROVE  InterProperty
     BY PTL DEF ASpec
@@ -535,6 +576,327 @@ LEMMA InterLemma == ASpec => [][InterProperty]_varsP
                NEW c \in ConfigDomain,
                c \in Q'
         PROVE  c \in Evolve(Q)
+    <2> USE <1>3
+    <2>1. CASE X # x[p]
+      <3> USE <2>1
+      <3> SUFFICES c \in Q
+        BY EmptySeqEvolve DEF Q
+      <3>1. TypeOK
+        BY PTL
+      <3>2. c.state = X
+        BY DEF Q, W2
+      <3>3. c.op = [q \in ProcSet |-> PCtoOp(pc[q])]
+        <4>1. c.op = [q \in ProcSet |-> PCtoOp(pc'[q])]
+          BY DEF Q
+        <4>2. PCtoOp(pc[p]) = PCtoOp(pc'[p])
+          BY <3>1 DEF W2, PCtoOp, TypeOK
+        <4> SUFFICES ASSUME NEW q \in ProcSet, q # p
+                     PROVE  pc'[q] = pc[q]
+          BY <4>1, <4>2
+        <4> QED
+          BY <3>1 DEF W2, TypeOK
+      <3>4. c.arg = [q \in ProcSet |-> IF pc[q] = "RM" THEN "BOT" ELSE arg[q]]
+        <4>1. c.arg = [q \in ProcSet |-> IF pc'[q] = "RM" THEN "BOT" ELSE arg'[q]]
+          BY DEF Q
+        <4> SUFFICES pc'[p] # "RM" /\ pc[p] # "RM"
+          BY <4>1, <3>1 DEF W2, TypeOK
+        <4> QED
+          BY <3>1 DEF W2, TypeOK
+      <3>5. pc'[p] = "W3" 
+        BY <3>1 DEF W2, TypeOK
+      <3>6. pc[p] = "W2" /\ c.res[p] = "ACK" /\ X # x[p]
+        BY <3>5 DEF Q, W2
+      <3> SUFFICES ASSUME NEW q \in ProcSet, q # p
+                   PROVE  /\ pc[q] = "RM" => c.res[q] = "BOT"
+                          /\ pc[q] = "R1" => c.res[q] = "BOT"
+                          /\ pc[q] = "R2" => c.res[q] = x[q]
+                          /\ pc[q] = "W1" => c.res[q] = "BOT"
+                          /\ pc[q] = "W2" => \/ c.res[q] = "BOT"
+                                             \/ (c.res[q] = "ACK" /\ X # x[q])
+                          /\ pc[q] = "W3" => c.res[q] = "ACK"
+        BY <3>2, <3>3, <3>4, <3>6 DEF Q
+      <3> SUFFICES pc'[q] = pc[q] /\ x'[q] = x[q] /\ X' = X
+        BY DEF Q
+      <3> QED
+        BY <3>1 DEF W2, TypeOK
+    <2>2. CASE X = x[p]
+      <3> USE <2>2
+      <3> DEFINE c_prev == 
+        [c EXCEPT !.state = X,
+                  !.res = [q \in ProcSet |-> IF pc[q] = "W2" THEN "BOT" ELSE c.res[q]]]
+      <3> SUFFICES /\ c_prev \in ConfigDomain 
+                   /\ c_prev \in Q
+                   /\ \E alpha \in Seq(ProcSet) : TransitionsOK(c_prev, alpha, c)
+        BY DEF Evolve
+      <3>1. TypeOK
+        BY PTL
+      <3>2. c_prev \in ConfigDomain
+        BY <3>1 DEF ConfigDomain, TypeOK, StateDomain, ResDomain
+      <3>3. c_prev \in Q
+        <4>1. c_prev.state = X
+          BY DEF ConfigDomain
+        <4>2. c_prev.op = [q \in ProcSet |-> PCtoOp(pc[q])]
+          <5>1. c_prev.op = [q \in ProcSet |-> PCtoOp(pc'[q])]
+            BY DEF Q, ConfigDomain
+          <5>2. PCtoOp(pc[p]) = PCtoOp(pc'[p])
+            BY <3>1 DEF W2, PCtoOp, TypeOK
+          <5> SUFFICES ASSUME NEW q \in ProcSet, q # p
+                       PROVE  pc'[q] = pc[q]
+            BY <5>1, <5>2
+          <5> QED
+            BY <3>1 DEF W2, TypeOK
+        <4>3. c_prev.arg = [q \in ProcSet |-> IF pc[q] = "RM" THEN "BOT" ELSE arg[q]]
+          <5>1. c_prev.arg = [q \in ProcSet |-> IF pc'[q] = "RM" THEN "BOT" ELSE arg'[q]]
+            BY DEF Q, ConfigDomain
+          <5> SUFFICES pc'[p] # "RM" /\ pc[p] # "RM"
+            BY <5>1, <3>1 DEF W2, TypeOK
+          <5> QED
+            BY <3>1 DEF W2, TypeOK
+        <4> SUFFICES ASSUME NEW q \in ProcSet
+                     PROVE  /\ pc[q] = "RM" => c_prev.res[q] = "BOT"
+                            /\ pc[q] = "R1" => c_prev.res[q] = "BOT"
+                            /\ pc[q] = "R2" => c_prev.res[q] = x[q]
+                            /\ pc[q] = "W1" => c_prev.res[q] = "BOT"
+                            /\ pc[q] = "W2" => c_prev.res[q] = "BOT"
+                            /\ pc[q] = "W3" => c_prev.res[q] = "ACK"
+          BY <3>2, <4>1, <4>2, <4>3 DEF Q
+        <4> QED
+          BY <3>1 DEF W2, TypeOK, Q, ConfigDomain
+      <3> DEFINE FailedWrites == {q \in ProcSet : pc[q] = "W2" /\ c.res[q] = "ACK" /\ q # p}
+      <3>4. IsFiniteSet(FailedWrites)
+        <4> SUFFICES IsFiniteSet({q \in ProcSet : pc[q] = "W2"})
+          BY FS_Subset
+        <4>1. {q \in ProcSet : pc[q] = "W2"} \in SUBSET {q \in ProcSet : pc[q] # "RM"}
+          OBVIOUS
+        <4> SUFFICES IsFiniteSet({q \in ProcSet : pc[q] # "RM"})
+          BY <4>1, FS_Subset
+        <4>2. FinActive
+          BY PTL
+        <4> QED
+          BY <4>2 DEF FinActive
+      <3>5. PICK alpha \in Perm(FailedWrites) : TRUE
+        BY <3>4, PermutationExists
+      <3> DEFINE alpha_p == alpha \o <<p>>
+      <3>6. alpha_p \in Seq(ProcSet)
+        BY <3>5 DEF Perm
+      <3> SUFFICES TransitionsOK(c_prev, alpha_p, c)
+        BY <3>2, <3>3, <3>6
+      <3> DEFINE BetaRest(i) == [state |-> arg[alpha_p[i]].newval, 
+                                 op    |-> c_prev.op,
+                                 arg   |-> c_prev.arg,
+                                 res   |-> [q \in ProcSet |-> IF \E j \in 1..i : alpha_p[j] = q 
+                                                                 THEN "ACK" 
+                                                                 ELSE c_prev.res[q]]]
+      <3> DEFINE beta_rest == [i \in 1..Len(alpha_p) |-> BetaRest(i)]
+      <3> DEFINE beta == <<c_prev>> \o beta_rest
+      <3>7. beta_rest \in Seq(ConfigDomain)
+        <4> SUFFICES ASSUME NEW i \in 1..Len(alpha_p)
+                     PROVE  BetaRest(i) \in ConfigDomain
+          BY <3>5, <3>6 
+        <4> SUFFICES arg[alpha_p[i]].newval \in StateDomain
+          BY <3>2 DEF BetaRest, ConfigDomain, ResDomain, RetsOf, OpNames
+        <4>1. alpha_p \in Seq({q \in ProcSet : pc[q] = "W2"})
+          BY <3>5 DEF Perm, W2
+        <4>2. alpha_p[i] \in ProcSet /\ pc[alpha_p[i]] = "W2"
+          BY <4>1
+        <4>3. arg[alpha_p[i]] \in ArgsOf("Write")
+          BY <3>1, <4>2 DEF PCtoOp, TypeOK
+        <4> QED
+          BY <4>3 DEF ArgsOf, StateDomain
+      <3>8. beta \in Seq(ConfigDomain)
+        BY <3>7, <3>2
+      <3>9. beta[1] = c_prev 
+        BY <3>7
+      <3>10. Len(beta) = Len(alpha_p) + 1
+        BY <3>6
+      <3> SUFFICES /\ \A i \in 1..Len(alpha_p) : Delta(beta[i], alpha_p[i], beta[i+1])
+                   /\ beta[Len(beta)] = c
+        BY Zenon, <3>8, <3>9, <3>10 DEF TransitionsOK
+      <3>11. ASSUME NEW i \in 1..Len(alpha_p)
+             PROVE  Delta(beta[i], alpha_p[i], beta[i+1])
+        <4> USE <3>11
+        <4> DEFINE bi == beta[i]
+                   q == alpha_p[i]
+                   bi1 == beta[i+1]
+        <4> HIDE DEF beta
+        <4> SUFFICES /\ bi.op[q] = "Write" 
+                     /\ bi.arg[q] \in ArgsOf("Write") 
+                     /\ bi.res[q] = "BOT"
+                     /\ bi1.state = bi.arg[q].newval
+                     /\ bi1.op = bi.op
+                     /\ bi1.arg = bi.arg 
+                     /\ bi1.res = [bi.res EXCEPT ![q] = "ACK"]
+          BY DEF Delta
+        <4>1. bi1.op = bi.op /\ bi1.arg = bi.arg
+          BY <3>7 DEF beta
+        <4>2. bi.op = c_prev.op /\ bi.arg = c_prev.arg
+          BY <3>7 DEF beta
+        <4>3. q = p \/ q \in {r \in ProcSet : pc[r] = "W2" /\ c.res[r] = "ACK" /\ r # p}
+          BY <3>5 DEF alpha_p, Perm, W2
+        <4>4. c_prev.op = [r \in ProcSet |-> PCtoOp(pc[r])]
+          BY <3>3 DEF Q, ConfigDomain
+        <4>5. c_prev.op[q] = "Write"
+          BY <4>3, <4>4 DEF PCtoOp, W2
+        <4>6. c_prev.arg = [r \in ProcSet |-> IF pc[r] = "RM" THEN "BOT" ELSE arg[r]]
+          BY <3>3 DEF Q, ConfigDomain
+        <4>7. c_prev.arg[q] \in ArgsOf("Write")
+          BY <3>1, <4>3, <4>6 DEF TypeOK, W2, PCtoOp
+        <4> SUFFICES /\ bi.res[q] = "BOT"
+                     /\ bi1.state = bi.arg[q].newval
+                     /\ bi1.res = [bi.res EXCEPT ![q] = "ACK"]
+          BY <4>1, <4>2, <4>5, <4>6, <4>7
+        <4>8. /\ i = 1 => bi.res = c_prev.res
+              /\ i # 1 => bi.res = [r \in ProcSet |-> IF \E j \in 1..(i-1) : alpha_p[j] = r THEN "ACK" ELSE c_prev.res[r]]
+          BY <3>7 DEF beta
+        <4>9. c_prev.res = [r \in ProcSet |-> IF pc[r] = "W2" THEN "BOT" ELSE c.res[r]]
+          BY DEF ConfigDomain, Q, W2
+        <4>10. c_prev.res[q] = "BOT"
+          BY <4>3, <4>9 DEF W2
+        <4>11. bi.res[q] = "BOT"
+          <5> SUFFICES ASSUME i # 1
+                       PROVE  ~(\E j \in 1..(i-1) : alpha_p[j] = q)
+            BY <4>3, <4>8, <4>10
+          <5> SUFFICES \A j \in 1..(i-1) : alpha_p[j] # q
+            OBVIOUS
+          <5>1. i \in 1..Len(alpha) \/ i = Len(alpha) + 1
+            BY DEF Perm
+          <5>2. CASE i = Len(alpha) + 1
+            BY <4>3, <5>2 DEF alpha_p, Perm
+          <5>3. CASE i \in 1..Len(alpha)
+            BY <4>3, <5>3 DEF alpha_p, Perm
+          <5> QED
+            BY <5>1, <5>2, <5>3
+        <4>12. bi1.state = bi.arg[q].newval
+          <5>1. bi1.state = arg[q].newval
+            BY <3>7 DEF beta
+          <5> SUFFICES arg[q].newval = bi.arg[q].newval
+            BY <5>1
+          <5>2. bi.arg = c_prev.arg
+            BY <3>7 DEF beta
+          <5>3. c_prev.arg[q] = arg[q]
+            BY <3>1, <4>3, <4>6 DEF TypeOK, W2, PCtoOp
+          <5> QED
+            BY <5>2, <5>3
+        <4>13. bi1.res = [bi.res EXCEPT ![q] = "ACK"]
+          <5>1. bi1.res = [r \in ProcSet |-> IF \E j \in 1..i : alpha_p[j] = r THEN "ACK" ELSE c_prev.res[r]]
+            BY <3>7 DEF beta
+          <5>2. /\ i = 1 => bi.res = c_prev.res
+                /\ i # 1 => bi.res = [r \in ProcSet |-> IF \E j \in 1..(i-1) : alpha_p[j] = r THEN "ACK" ELSE c_prev.res[r]]
+            BY <4>8
+          <5>3. CASE i = 1
+            <6> USE <5>3
+            <6> SUFFICES bi1.res = [c_prev.res EXCEPT ![q] = "ACK"]
+              BY <5>2
+            <6> SUFFICES ASSUME NEW r \in ProcSet
+                         PROVE  /\ r = q => bi1.res[r] = "ACK"
+                                /\ r # q => bi1.res[r] = c_prev.res[r]
+              BY <5>1, <4>9
+            <6>1. bi1.res[q] = "ACK"
+              BY <4>3, <5>1
+            <6> SUFFICES ASSUME r # q
+                         PROVE  bi1.res[r] = c_prev.res[r]
+              BY <6>1
+            <6> SUFFICES ~(\E j \in 1..1 : alpha_p[j] = r)
+              BY <5>1
+            <6> QED
+              OBVIOUS
+          <5> SUFFICES ASSUME i # 1,
+                              NEW r \in ProcSet
+                       PROVE  /\ r = q => bi1.res[r] = "ACK"
+                              /\ r # q => bi1.res[r] = bi.res[r]
+            BY <5>1, <5>2, <5>3
+          <5>4. bi1.res[q] = "ACK"
+            BY <4>3, <5>1
+          <5> SUFFICES ASSUME r # q
+                       PROVE  bi1.res[r] = bi.res[r]
+            BY <5>4
+          <5>5. CASE \E j \in 1..i : alpha_p[j] = r
+            BY <5>1, <5>2
+          <5> SUFFICES ASSUME ~(\E j \in 1..i : alpha_p[j] = r)
+                       PROVE  bi1.res[r] = bi.res[r]
+            BY <5>5
+          <5>6. bi1.res[r] = c_prev.res[r]
+            BY <5>1
+          <5>7. bi.res[r] = c_prev.res[r]
+            BY <4>8
+          <5> QED
+            BY <5>6, <5>7
+        <4> QED
+          BY <4>11, <4>12, <4>13
+      <3> SUFFICES beta[Len(beta)] = c
+        BY <3>11, Zenon
+      <3>12. beta[Len(beta)] \in ConfigDomain
+        BY <3>8, <3>6, SMTT(30)
+      <3> SUFFICES /\ beta[Len(beta)].state = c.state
+                   /\ beta[Len(beta)].op = c.op
+                   /\ beta[Len(beta)].arg = c.arg
+                   /\ beta[Len(beta)].res = c.res
+        <4> HIDE DEF beta
+        <4> QED BY <3>12 DEF ConfigDomain
+      <3>13. beta_rest # <<>>
+        BY <3>5 DEF Perm
+      <3>14. beta[Len(beta)] = BetaRest(Len(alpha_p))
+        <4> HIDE DEF c_prev, BetaRest
+        <4> QED BY <3>6, <3>13
+      <3> SUFFICES /\ arg[alpha_p[Len(alpha_p)]].newval = c.state
+                   /\ c_prev.op = c.op
+                   /\ c_prev.arg = c.arg
+                   /\ [q \in ProcSet |-> IF \E j \in 1..Len(alpha_p) : alpha_p[j] = q 
+                                            THEN "ACK" 
+                                            ELSE c_prev.res[q]] = c.res
+        <4> HIDE DEF c_prev
+        <4> QED BY <3>14 DEF BetaRest
+      <3>15. c_prev.op = c.op /\ c_prev.arg = c.arg /\ c.state = X'
+        BY <3>3 DEF Q, ConfigDomain
+      <3>16. alpha_p[Len(alpha_p)] = p
+        BY <3>5 DEF alpha_p, Perm, W2
+      <3>17. X' = arg[p].newval
+        BY <3>1 DEF W2, TypeOK
+      <3> SUFFICES ASSUME NEW q \in ProcSet
+                   PROVE  (IF \E j \in 1..Len(alpha_p) : alpha_p[j] = q THEN "ACK" ELSE c_prev.res[q]) = c.res[q]
+        BY <3>15, <3>16, <3>17 DEF Q, ConfigDomain
+      <3>18. CASE (\E j \in 1..Len(alpha_p) : alpha_p[j] = q)
+        <4> USE <3>18
+        <4> SUFFICES c.res[q] = "ACK"
+          OBVIOUS 
+        <4>1. q = p \/ q \in {r \in ProcSet : pc[r] = "W2" /\ c.res[r] = "ACK" /\ r # p}
+          BY <3>5 DEF alpha_p, Perm, W2
+        <4> SUFFICES c.res[p] = "ACK"
+          BY <4>1
+        <4> SUFFICES pc'[p] = "W3"
+          BY DEF Q
+        <4> QED
+          BY <3>1 DEF W2, TypeOK
+      <3> SUFFICES ASSUME ~(\E j \in 1..Len(alpha_p) : alpha_p[j] = q)
+                   PROVE  c_prev.res[q] = c.res[q]
+        BY <3>18
+      <3>19. c_prev.res[q] = IF pc[q] = "W2" THEN "BOT" ELSE c.res[q]
+        BY DEF ConfigDomain
+      <3> SUFFICES ASSUME pc[q] = "W2"
+                   PROVE  c.res[q] = "BOT"
+        BY <3>19
+      <3>20. ~(\E j \in 1..Len(alpha) : alpha[j] = q)
+        BY <3>5, <3>6 DEF alpha_p, Perm
+      <3>21. \A r1 \in {r2 \in ProcSet : pc[r2] = "W2" /\ c.res[r2] = "ACK" /\ r2 # p} : (\E j \in 1..Len(alpha) : alpha[j] = r1)
+        BY <3>5, PermutationIndex, SMTT(30)
+      <3>22. q \notin {r \in ProcSet : pc[r] = "W2" /\ c.res[r] = "ACK" /\ r # p}
+        BY <3>20, <3>21
+      <3>23. \E j \in 1..Len(alpha_p) : alpha_p[j] = p
+        BY <3>16, <3>5, <3>6 DEF alpha_p, Perm
+      <3>24. q # p
+        BY <3>23
+      <3>25. q # p /\ pc[q] = "W2"
+        BY <3>24
+      <3>26. q \notin {r \in ProcSet : c.res[r] = "ACK"}
+        BY <3>22, <3>25
+      <3>27. pc'[q] = pc[q]
+        BY <3>1, <3>24 DEF W2, TypeOK
+      <3>28. c.res[q] = "BOT" \/ c.res[q] = "ACK"
+        BY <3>27 DEF Q, ConfigDomain
+      <3> QED
+        BY <3>26, <3>28
+    <2> QED
+      BY <2>1, <2>2
   <1> QED
     BY <1>1, <1>2, <1>3, Zenon DEF InterAct, InterLines, Q
 
@@ -547,33 +909,175 @@ LEMMA InterLemma == ASpec => [][InterProperty]_varsP
 (***************************************************************************)
 ReturnProperty ==
   \A p \in ProcSet : ReturnAct(p) => (Q' \in SUBSET Filter(Evolve(Q), p, ret'[p]))
+
 LEMMA ReturnLemma == ASpec => [][ReturnProperty]_varsP
-
-
-
-
-
-
-
-
-
-
+  <1> SUFFICES ASSUME []TypeOK
+               PROVE  ASpec => [][ReturnProperty]_varsP
+    BY ASpecImpliesSpec, SpecTypeOK
+  <1> SUFFICES ASSUME ANext
+               PROVE  ReturnProperty
+    BY PTL DEF ASpec
+  <1> SUFFICES ASSUME NEW p \in ProcSet,
+                      ReturnAct(p)
+               PROVE  Q' \in SUBSET Filter(Evolve(Q), p, ret'[p])
+    BY DEF ReturnProperty
+  <1>1. ASSUME R2(p),
+               NEW c \in ConfigDomain,
+               c \in Q'
+        PROVE  c \in Filter(Evolve(Q), p, ret'[p])
+    <2> USE <1>1
+    <2>1. TypeOK
+      BY PTL
+    <2>2. c.res[p] = "BOT"
+      BY <2>1 DEF Q, R2, TypeOK
+    <2>3. c.op[p] = "BOT"
+      BY <2>1 DEF Q, R2, TypeOK, PCtoOp
+    <2>4. c.arg[p] = "BOT"
+      BY <2>1 DEF Q, R2, TypeOK
+    <2> DEFINE c_prev == 
+      [c EXCEPT !.op = [c.op EXCEPT ![p] = PCtoOp(pc[p])],
+                !.arg = [c.arg EXCEPT ![p] = IF pc[p] = "RM" THEN "BOT" ELSE arg[p]],
+                !.res = [c.res EXCEPT ![p] = ret'[p]]]
+    <2> SUFFICES c_prev \in Q
+      BY <2>2, <2>3, <2>4, EvolveAndFilterFromUnfiltered DEF Q
+    <2>5. c_prev \in ConfigDomain
+      <3> SUFFICES /\ PCtoOp(pc[p]) \in OpDomain
+                   /\ (IF pc[p] = "RM" THEN "BOT" ELSE arg[p]) \in ArgDomain
+                   /\ ret'[p] \in ResDomain
+        BY DEF Q, ConfigDomain
+      <3> QED
+        BY <2>1 DEF TypeOK, PCtoOp, R2, OpDomain, ArgDomain, ResDomain, OpNames, LineIDs, RetsOf
+    <2> SUFFICES /\ c_prev.state = X
+                 /\ c_prev.op = [q \in ProcSet |-> PCtoOp(pc[q])]
+                 /\ c_prev.arg = [q \in ProcSet |-> IF pc[q] = "RM" THEN "BOT" ELSE arg[q]]
+                 /\ \A q \in ProcSet :
+                    /\ pc[q] = "RM" => c_prev.res[q] = "BOT"
+                    /\ pc[q] = "R1" => c_prev.res[q] = "BOT"
+                    /\ pc[q] = "R2" => c_prev.res[q] = x[q]
+                    /\ pc[q] = "W1" => c_prev.res[q] = "BOT"
+                    /\ pc[q] = "W2" => \/ c_prev.res[q] = "BOT"
+                                       \/ (c_prev.res[q] = "ACK" /\ X # x[q])
+                    /\ pc[q] = "W3" => c_prev.res[q] = "ACK"
+      BY <2>5 DEF Q
+    <2>6. c_prev.state = X
+      BY DEF Q, ConfigDomain, R2
+    <2>7. c_prev.op = [q \in ProcSet |-> PCtoOp(pc[q])]
+      <3> SUFFICES ASSUME NEW q \in ProcSet, q # p
+                   PROVE  pc'[q] = pc[q]
+        BY DEF Q, ConfigDomain
+      <3> QED
+        BY <2>1 DEF TypeOK, R2
+    <2>8. c_prev.arg = [q \in ProcSet |-> IF pc[q] = "RM" THEN "BOT" ELSE arg[q]]
+      <3> SUFFICES ASSUME NEW q \in ProcSet, q # p
+                   PROVE  pc'[q] = pc[q] /\ arg'[q] = arg[q]
+        BY DEF Q, ConfigDomain
+      <3> QED
+        BY <2>1 DEF TypeOK, R2
+    <2>9. ASSUME NEW q \in ProcSet
+          PROVE  /\ pc[q] = "RM" => c_prev.res[q] = "BOT"
+                 /\ pc[q] = "R1" => c_prev.res[q] = "BOT"
+                 /\ pc[q] = "R2" => c_prev.res[q] = x[q]
+                 /\ pc[q] = "W1" => c_prev.res[q] = "BOT"
+                 /\ pc[q] = "W2" => \/ c_prev.res[q] = "BOT"
+                                    \/ (c_prev.res[q] = "ACK" /\ X # x[q])
+                 /\ pc[q] = "W3" => c_prev.res[q] = "ACK"
+      <3> USE <2>9
+      <3>1. CASE q = p
+        <4> USE <3>1
+        <4> SUFFICES ret'[p] = x[p]
+          BY <3>1 DEF R2, Q, ConfigDomain
+        <4> QED
+          BY <2>1 DEF TypeOK, R2
+      <3> SUFFICES ASSUME q # p
+                   PROVE  pc'[q] = pc[q] /\ x'[q] = x[q] /\ X' = X
+        BY <3>1 DEF Q, ConfigDomain
+      <3> QED
+        BY <2>1 DEF TypeOK, R2
+    <2> QED
+      BY <2>6, <2>7, <2>8, <2>9
+  <1>2. ASSUME W3(p),
+               NEW c \in ConfigDomain,
+               c \in Q'
+        PROVE  c \in Filter(Evolve(Q), p, ret'[p])
+    <2> USE <1>2
+    <2>1. TypeOK
+      BY PTL
+    <2>2. c.res[p] = "BOT"
+      BY <2>1 DEF Q, W3, TypeOK
+    <2>3. c.op[p] = "BOT"
+      BY <2>1 DEF Q, W3, TypeOK, PCtoOp
+    <2>4. c.arg[p] = "BOT"
+      BY <2>1 DEF Q, W3, TypeOK
+    <2> DEFINE c_prev == 
+      [c EXCEPT !.op = [c.op EXCEPT ![p] = PCtoOp(pc[p])],
+                !.arg = [c.arg EXCEPT ![p] = IF pc[p] = "RM" THEN "BOT" ELSE arg[p]],
+                !.res = [c.res EXCEPT ![p] = ret'[p]]]
+    <2> SUFFICES c_prev \in Q
+      BY <2>2, <2>3, <2>4, EvolveAndFilterFromUnfiltered DEF Q
+    <2>5. c_prev \in ConfigDomain
+      <3> SUFFICES /\ PCtoOp(pc[p]) \in OpDomain
+                   /\ (IF pc[p] = "RM" THEN "BOT" ELSE arg[p]) \in ArgDomain
+                   /\ ret'[p] \in ResDomain
+        BY DEF Q, ConfigDomain
+      <3> QED
+        BY <2>1 DEF TypeOK, PCtoOp, W3, OpDomain, ArgDomain, ResDomain, OpNames, LineIDs, RetsOf
+    <2> SUFFICES /\ c_prev.state = X
+                 /\ c_prev.op = [q \in ProcSet |-> PCtoOp(pc[q])]
+                 /\ c_prev.arg = [q \in ProcSet |-> IF pc[q] = "RM" THEN "BOT" ELSE arg[q]]
+                 /\ \A q \in ProcSet :
+                    /\ pc[q] = "RM" => c_prev.res[q] = "BOT"
+                    /\ pc[q] = "R1" => c_prev.res[q] = "BOT"
+                    /\ pc[q] = "R2" => c_prev.res[q] = x[q]
+                    /\ pc[q] = "W1" => c_prev.res[q] = "BOT"
+                    /\ pc[q] = "W2" => \/ c_prev.res[q] = "BOT"
+                                       \/ (c_prev.res[q] = "ACK" /\ X # x[q])
+                    /\ pc[q] = "W3" => c_prev.res[q] = "ACK"
+      BY <2>5, SMTT(30) DEF Q
+    <2>6. c_prev.state = X
+      BY DEF Q, ConfigDomain, W3
+    <2>7. c_prev.op = [q \in ProcSet |-> PCtoOp(pc[q])]
+      <3> SUFFICES ASSUME NEW q \in ProcSet, q # p
+                   PROVE  pc'[q] = pc[q]
+        BY DEF Q, ConfigDomain
+      <3> QED
+        BY <2>1 DEF TypeOK, W3
+    <2>8. c_prev.arg = [q \in ProcSet |-> IF pc[q] = "RM" THEN "BOT" ELSE arg[q]]
+      <3> SUFFICES ASSUME NEW q \in ProcSet, q # p
+                   PROVE  pc'[q] = pc[q] /\ arg'[q] = arg[q]
+        BY DEF Q, ConfigDomain
+      <3> QED
+        BY <2>1 DEF TypeOK, W3
+    <2>9. ASSUME NEW q \in ProcSet
+          PROVE  /\ pc[q] = "RM" => c_prev.res[q] = "BOT"
+                 /\ pc[q] = "R1" => c_prev.res[q] = "BOT"
+                 /\ pc[q] = "R2" => c_prev.res[q] = x[q]
+                 /\ pc[q] = "W1" => c_prev.res[q] = "BOT"
+                 /\ pc[q] = "W2" => \/ c_prev.res[q] = "BOT"
+                                    \/ (c_prev.res[q] = "ACK" /\ X # x[q])
+                 /\ pc[q] = "W3" => c_prev.res[q] = "ACK"
+      <3> USE <2>9
+      <3>1. CASE q = p
+        <4> USE <3>1
+        <4> SUFFICES ret'[p] = "ACK"
+          BY <3>1 DEF W3, Q, ConfigDomain
+        <4> QED
+          BY <2>1 DEF TypeOK, W3
+      <3> SUFFICES ASSUME q # p
+                   PROVE  pc'[q] = pc[q] /\ x'[q] = x[q] /\ X' = X
+        BY <3>1 DEF Q, ConfigDomain
+      <3> QED
+        BY <2>1 DEF TypeOK, W3
+    <2> QED
+      BY <2>6, <2>7, <2>8, <2>9
+  <1> QED
+    BY <1>1, <1>2, Zenon DEF ReturnAct, ReturnLines, Q
 
 -----------------------------------------------------------------------------
 (***************************************************************************)
 (* Plausibility set lemma 2.5: If no variable changes, Q remains the same. *)
 (***************************************************************************)
 LEMMA UnchangedLemma == UNCHANGED varsP => Q' = Q
-
-
-
-
-
-
-
-
-
-
+  BY DEF varsP, vars, implvars, Q
 
 -----------------------------------------------------------------------------
 (***************************************************************************)
