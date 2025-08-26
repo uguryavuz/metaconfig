@@ -7,10 +7,9 @@
 (* Last updated: 2025-02-11                                                *)
 (***************************************************************************)
 
-EXTENDS FiniteSets, TLAPS
+EXTENDS FiniteSetTheorems, TLAPS
 LOCAL INSTANCE Sequences
 LOCAL INSTANCE Integers
-LOCAL INSTANCE FiniteSetTheorems
 
 (***************************************************************************)
 (* A permutation of a finite set S is an ordered sequence that contains    *)
@@ -129,5 +128,149 @@ THEOREM PermutationIndex ==
   <1>9. Cardinality(R) < Cardinality(I) BY <1>4, <1>8
   <1>10. \E y, z \in I : y # z /\ pi[y] = pi[z] BY <1>2, <1>3, <1>7, <1>9, FS_PigeonHole
   <1> QED BY <1>10 DEF Perm
+
+(***************************************************************************)
+(* A permutation of a set of integers can be chosen to be sorted in        *)
+(* increasing order.                                                       *)
+(***************************************************************************)
+THEOREM SortedPermutationOfIntegerSet ==
+    ASSUME NEW S, IsFiniteSet(S), 
+           S \in SUBSET Int
+    PROVE  \E pi \in Perm(S) : 
+             \A m, n \in 1..Len(pi) : m < n => pi[m] < pi[n]
+  <1>1. ASSUME NEW W, IsFiniteSet(W), W \in SUBSET Int, W # {}
+        PROVE  \E max \in W : \A W \in W : W <= max
+    <2> USE <1>1
+    <2> DEFINE P(T) == T \in SUBSET Int /\ T # {} => \E max \in T : \A W \in T : W <= max
+    <2>1. P({})
+      OBVIOUS
+    <2>2. ASSUME NEW T, NEW x, P(T), x \notin T
+          PROVE  P(T \cup {x})
+      <3> HAVE T \cup {x} \in SUBSET Int
+      <3>1. CASE \A y \in T : y <= x
+        BY <3>1, Isa
+      <3>2. CASE \E y \in T : ~(y <= x)
+        <4> T # {}
+          BY <3>2
+        <4>1. PICK y \in T : \A z \in T : z <= y
+          BY <2>2
+        <4>2. x <= y
+          BY <3>2, <4>1
+        <4> QED
+          BY <4>1, <4>2
+      <3> QED 
+        BY <3>1, <3>2
+    <2> HIDE DEF P
+    <2>3. P(W)
+      BY <2>1, <2>2, FS_Induction, IsaM("blast")
+    <2> QED 
+      BY <2>3, Zenon DEF P
+  <1> SUFFICES ASSUME NEW S, IsFiniteSet(S), 
+                      S \in SUBSET Int
+               PROVE  \E pi \in Perm(S) : 
+                        \A m, n \in 1..Len(pi) : m < n => pi[m] < pi[n]
+    OBVIOUS
+  <1> DEFINE P(k) ==
+    \A T : (IsFiniteSet(T) /\ Cardinality(T) = k /\ T \in SUBSET Int) 
+              => (\E pi \in Perm(T) : \A m, n \in 1..Len(pi) : m < n => pi[m] < pi[n])
+  <1>2. P(0)
+    <2> SUFFICES ASSUME NEW T, IsFiniteSet(T), Cardinality(T) = 0, T \in SUBSET Int
+                 PROVE  \E pi \in Perm(T) : \A m, n \in 1..Len(pi) : m < n => pi[m] < pi[n]
+      BY Zenon
+    <2> T = {}
+      BY FS_EmptySet
+    <2> DEFINE pi == <<>>
+    <2>1. pi \in Perm({})
+      BY FS_EmptySet DEF Perm
+    <2> QED
+      BY <2>1
+  <1>3. \A k \in Nat : P(k) => P(k+1)
+    <2> SUFFICES ASSUME NEW k \in Nat, P(k),
+                        NEW T, IsFiniteSet(T), Cardinality(T) = k+1, T \in SUBSET Int
+                 PROVE  \E alpha \in Perm(T) : \A m, n \in 1..Len(alpha) : m < n => alpha[m] < alpha[n]
+      BY Zenon DEF P
+    <2>1. T # {}
+      BY FS_EmptySet
+    <2>2. PICK max \in T : (\A y \in T : y <= max)
+      BY <1>1, <2>1, Zenon
+    <2> DEFINE W == T \ {max}
+    <2>3. Cardinality(W) = Cardinality(T) - Cardinality(T \cap {max})
+      BY FS_Difference, Zenon
+    <2>4. T \cap {max} = {max}
+      OBVIOUS
+    <2>5. Cardinality(W) = Cardinality(T) - Cardinality({max})
+      BY <2>3, <2>4, Zenon
+    <2>6. Cardinality(W) = Cardinality(T) - 1
+      BY <2>5, FS_Singleton, Zenon
+    <2>7. Cardinality(W) = k
+      BY <2>6
+    <2>8. IsFiniteSet(W) /\ W \in SUBSET Int /\ Cardinality(W) = k 
+      BY <2>7, FS_Difference, Zenon
+    <2>9. PICK alpha_prev \in Perm(W) : \A m, n \in 1..Len(alpha_prev) : m < n => alpha_prev[m] < alpha_prev[n]
+      BY <2>8, Zenon
+    <2> DEFINE alpha == alpha_prev \o <<max>>
+    <2>10. alpha \in Seq(T)
+      BY DEF Perm
+    <2>11. Len(alpha) = k + 1
+      BY <2>7, <2>9 DEF Perm
+    <2>12. \A i, j \in 1..Len(alpha) : i # j => alpha[i] # alpha[j]
+      <3> SUFFICES ASSUME NEW i \in 1..Len(alpha), NEW j \in 1..Len(alpha), i # j
+                   PROVE  alpha[i] # alpha[j]
+        OBVIOUS
+      <3>1. CASE i = k+1
+        <4> USE <3>1
+        <4>1. alpha[j] \in W
+          BY <2>9, <2>11 DEF Perm
+        <4>2. alpha[j] # max
+          BY <4>1
+        <4> QED
+          BY <2>11, <4>2 DEF Perm
+      <3>2. CASE j = k+1
+        <4> USE <3>2
+        <4>1. alpha[i] \in W
+          BY <2>9, <2>11 DEF Perm
+        <4>2. alpha[i] # max
+          BY <4>1
+        <4> QED
+          BY <2>11, <4>2 DEF Perm
+      <3>3. CASE i <= k /\ j <= k
+        <4> USE <3>3
+        <4>1. alpha[i] = alpha_prev[i] /\ alpha[j] = alpha_prev[j]
+          BY <2>11 DEF Perm
+        <4>2. i \in 1..Len(alpha_prev) /\ j \in 1..Len(alpha_prev)
+          BY <2>11 DEF Perm
+        <4>3. alpha_prev[i] # alpha_prev[j]
+          BY <2>9, <4>2, Zenon DEF Perm
+        <4> QED
+          BY <4>1, <4>3
+      <3> QED
+        BY <2>11, <3>1, <3>2, <3>3
+    <2>13. alpha \in Perm(T)
+      BY <2>10, <2>11, <2>12, Zenon DEF Perm
+    <2>14. \A m, n \in 1..Len(alpha) : m < n => alpha[m] < alpha[n]
+      <3> USE <2>2, <2>9, <2>11
+      <3> SUFFICES ASSUME NEW m \in 1..Len(alpha), NEW n \in 1..Len(alpha), m < n
+                   PROVE  alpha[m] < alpha[n]
+        OBVIOUS
+      <3>1. CASE m = k+1
+        BY <3>1
+      <3>2. CASE n = k+1
+        <4> USE <3>2
+        <4>1. alpha[m] \in W
+          BY DEF Perm
+        <4>2. alpha[m] < max
+          BY <4>1, Isa
+        <4> QED
+          BY <4>2 DEF Perm
+      <3>3. CASE m <= k /\ n <= k
+        BY <3>3 DEF Perm
+      <3> QED
+        BY <3>1, <3>2, <3>3
+    <2> QED
+      BY <2>13, <2>14, Zenon
+  <1>4. \A k \in Nat : P(k)
+    BY <1>2, <1>3, NatInduction, Isa
+  <1> QED
+    BY <1>4, FS_CardinalityType
 
 =============================================================================

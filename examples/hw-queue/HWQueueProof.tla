@@ -415,13 +415,246 @@ Q == {c \in ConfigDomain :
 (***************************************************************************)
 (* Plausibility set theorem 1: Q is non-empty is an invariant of ASpec.    *)
 (***************************************************************************)
+
+(* Helper lemma: TypeOK and EnqIdxInv suffice to show Q is non-empty *)
+LEMMA TypeOKEIIImpliesQNE == TypeOK /\ EnqIdxInv => Q # {}
+  <1> SUFFICES ASSUME TypeOK, EnqIdxInv
+               PROVE  Q # {}
+    OBVIOUS
+  <1> DEFINE cop == [p \in ProcSet |-> PCtoOp(pc[p])]
+  <1>1. cop \in [ProcSet -> OpDomain]
+    BY DEF TypeOK, LineIDs, PCtoOp, OpNames, OpDomain
+  <1> DEFINE carg == [p \in ProcSet |-> IF pc[p] = "RM" THEN "BOT" ELSE arg[p]]
+  <1>2. carg \in [ProcSet -> ArgDomain]
+    BY Zenon DEF ArgDomain, TypeOK, ArgsOf, PCtoOp
+  <1> DEFINE cres == [p \in ProcSet |-> CASE pc[p] = "E3" -> "ACK"
+                                          [] pc[p] = "D3" -> v[p]
+                                          [] OTHER -> "BOT"]
+  <1>3. cres \in [ProcSet -> ResDomain]
+    BY DEF ResDomain, RetDomain, TypeOK, RetsOf, OpNames
+  <1> DEFINE full_indices == {i \in 1..(L-1) : A[i] # "BOT"}
+  <1>4. /\ \A m \in full_indices : Val(m) # "BOT"
+        /\ \A m \in 1..(L-1) : A[m] # "BOT" => m \in full_indices
+        /\ full_indices \in SUBSET 1..(L-1)
+    BY DEF Val
+  <1>5. IsFiniteSet(full_indices) 
+    BY FS_Interval, FS_Subset DEF TypeOK
+  <1>6. full_indices \in SUBSET Int
+    BY DEF TypeOK
+  <1>7. PICK pi \in Perm(full_indices) : \A m, n \in 1..Len(pi) : 
+      m < n => pi[m] < pi[n]
+    BY <1>5, <1>6, SortedPermutationOfIntegerSet
+  <1>8. Justified(pi)
+    BY <1>7 DEF Justified
+  <1> DEFINE cstate == [i \in 1..Len(pi) |-> Val(pi[i])]
+  <1>9. cstate \in StateDomain
+    BY DEF StateDomain, Perm, TypeOK, Val
+  <1> DEFINE c == [state |-> cstate, op |-> cop, arg |-> carg, res |-> cres]
+  <1>10. c \in ConfigDomain
+    BY <1>1, <1>2, <1>3, <1>9 DEF ConfigDomain
+  <1> SUFFICES \E idxset \in SUBSET 1..(L-1) :
+               /\ \A m \in idxset : Val(m) # "BOT"
+               /\ \A m \in 1..(L-1) : A[m] # "BOT" => m \in idxset
+               /\ \E idxseq \in Perm(idxset) :
+                  /\ Justified(idxseq)
+                  /\ c.state = [i \in 1..Len(idxseq) |-> Val(idxseq[i])]
+                  /\ \A q \in ProcSet : 
+                     /\ pc[q] = "RM" => c.res[q] = "BOT"
+                     /\ pc[q] = "E1" => c.res[q] = "BOT"
+                     /\ (pc[q] = "E2" /\ l[q] \notin idxset) => c.res[q] = "BOT"
+                     /\ (pc[q] = "E2" /\ l[q] \in idxset) => c.res[q] = "ACK"
+                     /\ pc[q] = "E3" => c.res[q] = "ACK"
+                     /\ pc[q] = "D1" => c.res[q] = "BOT"
+                     /\ pc[q] = "D2" => c.res[q] = "BOT"
+                     /\ pc[q] = "D3" => c.res[q] = v[q]
+    BY <1>10 DEF Q
+  <1> SUFFICES \E idxseq \in Perm(full_indices) :
+                  /\ Justified(idxseq)
+                  /\ c.state = [i \in 1..Len(idxseq) |-> Val(idxseq[i])]
+                  /\ \A q \in ProcSet : 
+                     /\ pc[q] = "RM" => c.res[q] = "BOT"
+                     /\ pc[q] = "E1" => c.res[q] = "BOT"
+                     /\ (pc[q] = "E2" /\ l[q] \notin full_indices) => c.res[q] = "BOT"
+                     /\ (pc[q] = "E2" /\ l[q] \in full_indices) => c.res[q] = "ACK"
+                     /\ pc[q] = "E3" => c.res[q] = "ACK"
+                     /\ pc[q] = "D1" => c.res[q] = "BOT"
+                     /\ pc[q] = "D2" => c.res[q] = "BOT"
+                     /\ pc[q] = "D3" => c.res[q] = v[q]
+    BY <1>4
+  <1>11. ASSUME NEW q \in ProcSet 
+         PROVE  /\ pc[q] = "RM" => c.res[q] = "BOT"
+                /\ pc[q] = "E1" => c.res[q] = "BOT"
+                /\ (pc[q] = "E2" /\ l[q] \notin full_indices) => c.res[q] = "BOT"
+                /\ (pc[q] = "E2" /\ l[q] \in full_indices) => c.res[q] = "ACK"
+                /\ pc[q] = "E3" => c.res[q] = "ACK"
+                /\ pc[q] = "D1" => c.res[q] = "BOT"
+                /\ pc[q] = "D2" => c.res[q] = "BOT"
+                /\ pc[q] = "D3" => c.res[q] = v[q]
+    BY DEF EnqIdxInv (* Invariant ensures l[q] \in full_indices does not hold when pc[q] = "E2" *)
+  <1> QED
+    BY <1>7, <1>8, <1>11
+
 THEOREM PlausSetThm1 == ASpec => [](Q # {})
+  <1> SUFFICES Spec => [](Q # {})
+    BY ASpecImpliesSpec
+  <1> SUFFICES Spec => [](TypeOK /\ EnqIdxInv)
+    BY TypeOKEIIImpliesQNE, PTL
+  <1> QED
+    BY SpecTypeOK, SpecEnqIdxInv, PTL
 
 -----------------------------------------------------------------------------
 (***************************************************************************)
 (* Plausibility set lemma 2.1: Q is initally the same as the singleton P.  *)
 (***************************************************************************)
 THEOREM PlausSetInitLemma == AInit => Q = P
+  <1> SUFFICES ASSUME AInit
+               PROVE  Q = P
+    OBVIOUS
+  <1>1. TypeOK /\ EnqIdxInv
+    <2>1. <<>> \in Seq(EltDomain)
+      OBVIOUS
+    <2> QED
+      BY <2>1 DEF AInit, Init, ImplInit, InitState, TypeOK, LineIDs, StateDomain, ArgDomain, EnqIdxInv
+  <1>2. Q # {}
+    BY <1>1, TypeOKEIIImpliesQNE
+  <1>3. Q \in SUBSET ConfigDomain
+    BY DEF Q
+  <1> SUFFICES \A c \in Q :
+      c = [state |-> InitState, 
+           op    |-> [p \in ProcSet |-> "BOT"], 
+           arg   |-> [p \in ProcSet |-> "BOT"], 
+           res   |-> [p \in ProcSet |-> "BOT"]]
+    BY <1>2, Zenon DEF AInit
+  <1> SUFFICES ASSUME NEW c \in ConfigDomain,
+                      c \in Q
+               PROVE  /\ c.state = InitState
+                      /\ c.op = [p \in ProcSet |-> "BOT"]
+                      /\ c.arg = [p \in ProcSet |-> "BOT"]
+                      /\ c.res = [p \in ProcSet |-> "BOT"]
+    BY <1>3 DEF ConfigDomain
+  <1>4. c.op = [p \in ProcSet |-> "BOT"]
+    BY DEF Q, PCtoOp, AInit, Init
+  <1>5. c.arg = [p \in ProcSet |-> "BOT"]
+    BY DEF Q, AInit, Init
+  <1>6. c.res = [p \in ProcSet |-> "BOT"]
+    BY DEF Q, ConfigDomain, AInit, Init
+  <1> SUFFICES c.state = InitState
+    BY <1>4, <1>5, <1>6
+  <1>7. PICK idxset \in SUBSET 1..(L-1) :
+        /\ \A m \in idxset : Val(m) # "BOT"
+        /\ \A m \in 1..(L-1) : A[m] # "BOT" => m \in idxset
+        /\ \E idxseq \in Perm(idxset) :
+           /\ Justified(idxseq)
+           /\ c.state = [i \in 1..Len(idxseq) |-> Val(idxseq[i])]
+    BY DEF Q
+  <1>8. PICK idxseq \in Perm(idxset) :
+        /\ Justified(idxseq)
+        /\ c.state = [i \in 1..Len(idxseq) |-> Val(idxseq[i])]
+    BY <1>7
+  <1>9. \A m \in 1..(L-1) : A[m] # "BOT" 
+    <2>1. <<>> \in Seq(EltDomain)
+      OBVIOUS
+    <2> QED
+      BY <2>1, BotNotElt DEF AInit, Init, ImplInit, InitState, StateDomain
+  <1>10. idxset = 1..(L-1)
+    BY <1>7, <1>9
+  <1>11. ~(\E p \in ProcSet : pc[p] = "D2")
+    BY DEF AInit, Init
+  <1>12. \A m, n \in 1..Len(idxseq) : m < n => idxseq[m] < idxseq[n]
+    BY <1>8, <1>9, <1>11 DEF Justified, Perm
+  (* Here onward, proof shows idxseq is the identity permutation *)
+  <1>13. Len(idxseq) = Cardinality(1..(L-1))
+    BY <1>8, <1>10 DEF Perm
+  <1>14. Cardinality(1..(L-1)) = L-1
+    BY FS_Interval, <1>1 DEF TypeOK
+  <1>15. <<>> \in Seq(EltDomain)
+    OBVIOUS
+  <1>16. Len(idxseq) = Len(InitState)
+    BY <1>1, <1>13, <1>14, <1>15 DEF TypeOK, AInit, Init, ImplInit, InitState, StateDomain
+  <1>17. c.state = [i \in 1..Len(idxseq) |-> A[idxseq[i]]]
+    BY <1>8, <1>9 DEF Val, Perm
+  <1>18. c.state = [i \in 1..Len(InitState) |-> A[idxseq[i]]]
+    BY <1>16, <1>17
+  <1> SUFFICES \A i \in 1..Len(idxseq) : idxseq[i] = i
+    BY <1>16, <1>18, <1>15 DEF AInit, Init, ImplInit, InitState, StateDomain
+  <1> DEFINE R(k) == k <= Len(idxseq) => \A i \in 1..k : idxseq[i] = i
+  <1> SUFFICES ASSUME Len(idxseq) > 0 
+               PROVE  R(Len(idxseq))
+    BY DEF Perm
+  <1> DEFINE R2(k) == R(k+1)
+  <1> SUFFICES R2(Len(idxseq)-1)
+    BY DEF Perm
+  <1> SUFFICES \A k \in Nat : R2(k)
+    BY DEF Perm
+  <1> SUFFICES R2(0) /\ \A n \in Nat : R2(n) => R2(n+1)
+    BY NatInduction, Isa
+  <1>19. R2(0)
+    <2> SUFFICES idxseq[1] = 1
+      BY DEF Perm
+    <2> SUFFICES ASSUME idxseq[1] # 1
+                 PROVE  FALSE
+      OBVIOUS
+    <2>1. 1 \in idxset
+      BY <1>13, <1>14, <1>1, <1>10 DEF TypeOK
+    <2>2. PICK z \in 1..Len(idxseq) : idxseq[z] = 1
+      BY PermutationIndex, <2>1
+    <2>3. idxseq[z-1] < idxseq[z]
+      BY <1>12, <2>2 DEF Perm
+    <2>4. idxseq[z-1] < 1
+      BY <2>2, <2>3 DEF Perm
+    <2> QED
+      BY <2>4, <2>2, <1>10 DEF Perm
+  <1>20. \A n \in Nat : R2(n) => R2(n+1)
+    <2> SUFFICES ASSUME NEW n \in Nat,
+                        R2(n)
+                 PROVE  R2(n+1)
+      OBVIOUS
+    <2> SUFFICES ASSUME R(n+1)
+                 PROVE  R(n+2)
+      OBVIOUS
+    <2> DEFINE m == n+1
+    <2> m \in Nat \ {0}
+      OBVIOUS
+    <2> SUFFICES ASSUME R(m)
+                 PROVE  R(m+1)
+      OBVIOUS
+    <2> HIDE DEF m, R2
+    <2> SUFFICES ASSUME m+1 <= Len(idxseq),
+                        NEW i \in 1..(m+1)
+                 PROVE  idxseq[i] = i
+      OBVIOUS
+    <2>1. CASE i \in 1..m
+      BY <2>1 DEF Perm
+    <2> SUFFICES idxseq[m+1] = m+1
+      BY <2>1 DEF Perm
+    <2> SUFFICES ASSUME idxseq[m+1] # m+1
+                 PROVE  FALSE
+      OBVIOUS
+    <2>2. m+1 \in idxset
+      BY <1>13, <1>14, <1>10
+    <2>3. PICK z \in 1..Len(idxseq) : idxseq[z] = m+1
+      BY PermutationIndex, <2>2
+    <2>4. z # m+1
+      BY <2>3
+    <2>5. ~(z < m+1)
+      BY <2>3 DEF Perm
+    <2>6. m+1 < z
+      BY <2>4, <2>5
+    <2>7. idxseq[m+1] < idxseq[z]
+      BY <1>12, <2>6 DEF Perm
+    <2>8. idxseq[m+1] > m+1
+      <3> SUFFICES ASSUME idxseq[m+1] \in 1..m
+                   PROVE  FALSE
+        BY DEF Perm
+      <3>1. idxseq[m] = m /\ idxseq[m+1] \in 1..m
+        BY DEF Perm
+      <3> QED
+        BY <1>12, <3>1 DEF Perm
+    <2> QED
+      BY <2>3, <2>7, <2>8, <1>12 DEF Perm
+  <1> HIDE DEF R2
+  <1> QED
+    BY <1>19, <1>20
 
 -----------------------------------------------------------------------------
 (***************************************************************************)
@@ -436,6 +669,45 @@ InvocProperty ==
   \A p \in ProcSet : InvocAct(p) => (Q' \in SUBSET Evolve(Invoke(Q, p, PCtoOp(pc'[p]), arg'[p])))
 
 THEOREM InvocLemma == ASpec => [][InvocProperty]_varsP
+  <1> SUFFICES ASSUME []TypeOK
+               PROVE  ASpec => [][InvocProperty]_varsP
+    BY ASpecImpliesSpec, SpecTypeOK
+  <1> SUFFICES ASSUME ANext
+               PROVE  InvocProperty
+    BY PTL DEF ASpec
+  <1> SUFFICES ASSUME NEW p \in ProcSet,
+                      InvocAct(p)
+               PROVE  Q' \in SUBSET Evolve(Invoke(Q, p, PCtoOp(pc'[p]), arg'[p]))
+    BY DEF InvocProperty
+  <1> SUFFICES ASSUME NEW c \in ConfigDomain,
+                      c \in Q'
+               PROVE  c \in Evolve(Invoke(Q, p, PCtoOp(pc'[p]), arg'[p]))
+    BY Zenon DEF Q
+  <1>1. Q \in SUBSET ConfigDomain
+    BY Zenon DEF Q
+  <1>2. c.op[p] = PCtoOp(pc'[p])
+    BY DEF Q
+  <1>3. c.arg[p] = arg'[p]
+    <2> SUFFICES pc'[p] # "RM"
+      BY DEF Q
+    <2>1. TypeOK
+      BY PTL
+    <2> QED
+      BY <2>1 DEF InvocAct, OpToFirstLine, OpNames, TypeOK
+  <1>4. c.res[p] = "BOT"
+    <2> SUFFICES pc'[p] = "E1" \/ pc'[p] = "D1"
+      BY DEF Q
+    <2>1. TypeOK
+      BY PTL
+    <2> QED
+      BY <2>1 DEF Q, InvocAct, OpToFirstLine, OpNames, TypeOK
+  <1> DEFINE c_prev == [c EXCEPT !.op = [c.op EXCEPT ![p] = "BOT"],
+                                 !.arg = [c.arg EXCEPT ![p] = "BOT"]]
+  <1> SUFFICES c_prev \in Q
+    BY <1>1, <1>2, <1>3, <1>4, InvokeAndEvolveFromUninvoked
+  <1>5. c_prev \in ConfigDomain
+    BY DEF ConfigDomain, OpDomain, ArgDomain
+  <1> QED
 
 -----------------------------------------------------------------------------
 (***************************************************************************)

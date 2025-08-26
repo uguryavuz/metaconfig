@@ -52,4 +52,14 @@ THEOREM PermutationIndex ==
            x \in S, pi \in Perm(S)
     PROVE  \E i \in 1..Len(pi) : pi[i] = x
 
+(***************************************************************************)
+(* A permutation of a set of integers can be chosen to be sorted in        *)
+(* increasing order.                                                       *)
+(***************************************************************************)
+THEOREM SortedPermutationOfIntegerSet ==
+    ASSUME NEW S, IsFiniteSet(S), 
+           S \in SUBSET Int
+    PROVE  \E pi \in Perm(S) : 
+             \A m, n \in 1..Len(pi) : m < n => pi[m] < pi[n]
+
 =============================================================================
