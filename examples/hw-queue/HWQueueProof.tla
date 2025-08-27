@@ -902,6 +902,34 @@ THEOREM InvocLemma == ASpec => [][InvocProperty]_varsP
 InterProperty == \A p \in ProcSet : InterAct(p) => (Q' \in SUBSET Evolve(Q))
 
 THEOREM InterLemma == ASpec => [][InterProperty]_varsP
+  <1> SUFFICES ASSUME []TypeOK, []FinActive, []BotPastL, []EnqIdxInv, []DeqIdxInv
+               PROVE  ASpec => [][InterProperty]_varsP
+    BY ASpecImpliesSpec, SpecTypeOK, SpecFinActive, SpecBotPastL, SpecEnqIdxInv, SpecDeqIdxInv
+  <1> SUFFICES ASSUME ANext
+               PROVE  InterProperty
+    BY PTL DEF ASpec
+  <1> SUFFICES ASSUME NEW p \in ProcSet,
+                      InterAct(p)
+               PROVE  Q' \in SUBSET Evolve(Q)
+    BY DEF InterProperty
+  <1>1. ASSUME E1(p),
+               NEW c \in ConfigDomain,
+               c \in Q'
+        PROVE  c \in Evolve(Q)
+  <1>2. ASSUME E2(p),
+               NEW c \in ConfigDomain,
+               c \in Q'
+        PROVE  c \in Evolve(Q)
+  <1>3. ASSUME D1(p),
+               NEW c \in ConfigDomain,
+               c \in Q'
+        PROVE  c \in Evolve(Q)
+  <1>4. ASSUME D2(p),
+               NEW c \in ConfigDomain,
+               c \in Q'
+        PROVE  c \in Evolve(Q)
+  <1> QED
+    BY <1>1, <1>2, <1>3, <1>4, Zenon DEF InterAct, InterLines, Q
 
 -----------------------------------------------------------------------------
 (***************************************************************************)
