@@ -89,8 +89,7 @@ THEOREM ASpecImpliesSpec == ASpec => Spec
 (***************************************************************************)
 (* ASSUMPTIONS                                                             *)
 (***************************************************************************)
-ASSUME BotNotElt == /\ "BOT" \notin EltDomain
-                    /\ "BOT" \notin [val : EltDomain]
+ASSUME BotNotElt == "BOT" \notin EltDomain
 
 -----------------------------------------------------------------------------
 (***************************************************************************)
@@ -383,13 +382,13 @@ Val(idx) ==
     IF 
       (\E q \in ProcSet : pc[q] = "E2" /\ l[q] = idx) 
     THEN 
-      LET p == CHOOSE q \in ProcSet : pc[q] = "E2" /\ l[q] = idx IN arg[p]
+      LET p == CHOOSE q \in ProcSet : pc[q] = "E2" /\ l[q] = idx IN arg[p].val
     ELSE 
       "BOT"
 
 Justified(idxseq) == 
   \A m, n \in 1..Len(idxseq) : m < n => 
-    (idxseq[m] < idxseq[n] \/ (A[idxseq[m]] # "BOT" => 
+    (idxseq[m] < idxseq[n] \/ (A[idxseq[n]] # "BOT" => 
       (\E p \in ProcSet : pc[p] = "D2" /\ idxseq[n] < j[p] /\ idxseq[m] < l[p])))
 
 Q == {c \in ConfigDomain : 
@@ -809,7 +808,7 @@ THEOREM InvocLemma == ASpec => [][InvocProperty]_varsP
     <2> SUFFICES ASSUME A'[m] = "BOT",
                         \E r \in ProcSet : pc'[r] = "E2" /\ l'[r] = m,
                         NEW q, q = CHOOSE r \in ProcSet : pc'[r] = "E2" /\ l'[r] = m,
-                        Val(m)' = arg'[q]
+                        Val(m)' = arg'[q].val
                  PROVE  Val(m) # "BOT"
       BY <2>1, <2>2 DEF Val
     <2>3. A[m] = "BOT"
@@ -820,9 +819,9 @@ THEOREM InvocLemma == ASpec => [][InvocProperty]_varsP
       BY <1>1 DEF implvars, InvocAct, TypeOK, OpToFirstLine, OpNames
     <2>6. q = CHOOSE r \in ProcSet : pc[r] = "E2" /\ l[r] = m
       BY <2>5, Zenon
-    <2>7. Val(m) = arg[q]
+    <2>7. Val(m) = arg[q].val
       BY <2>3, <2>4, <2>6 DEF Val
-    <2>8. arg[q] \in [val : EltDomain]
+    <2>8. arg[q].val \in EltDomain
       BY <1>1, <2>4 DEF TypeOK, ArgsOf, PCtoOp
     <2> QED
       BY <2>7, <2>8, BotNotElt
@@ -849,9 +848,9 @@ THEOREM InvocLemma == ASpec => [][InvocProperty]_varsP
           BY <2>2 DEF implvars, InvocAct
         <4>5. \E r \in ProcSet : pc[r] = "E2" /\ l[r] = idxseq[i]
           BY <3>1, <4>1
-        <4>6. Val(idxseq[i]) = arg[q]
+        <4>6. Val(idxseq[i]) = arg[q].val
           BY <4>3, <4>4, <4>5 DEF Val
-        <4>7. Val(idxseq[i])' = arg'[q]
+        <4>7. Val(idxseq[i])' = arg'[q].val
           BY <2>2, <3>1 DEF Val
         <4>8. q # p
           BY <4>2, <4>1 DEF InvocAct
@@ -920,6 +919,260 @@ THEOREM InterLemma == ASpec => [][InterProperty]_varsP
                NEW c \in ConfigDomain,
                c \in Q'
         PROVE  c \in Evolve(Q)
+    <2> USE <1>2
+    <2> SUFFICES c \in Q
+      BY EmptySeqEvolve DEF Q
+    <2>1. TypeOK
+      BY PTL
+    <2>2. c.op = [q \in ProcSet |-> PCtoOp(pc[q])]
+      <3>1. c.op = [q \in ProcSet |-> PCtoOp(pc'[q])]
+        BY DEF Q
+      <3>2. PCtoOp(pc'[p]) = PCtoOp(pc[p])
+        BY <2>1 DEF E2, PCtoOp, TypeOK
+      <3> SUFFICES ASSUME NEW q \in ProcSet, q # p
+                   PROVE  pc'[q] = pc[q]
+        BY <3>1, <3>2
+      <3> QED
+        BY <2>1 DEF E2, TypeOK
+    <2>3. c.arg = [q \in ProcSet |-> IF pc[q] = "RM" THEN "BOT" ELSE arg[q]]
+      <3>1. c.arg = [q \in ProcSet |-> IF pc'[q] = "RM" THEN "BOT" ELSE arg'[q]]
+        BY DEF Q
+      <3> SUFFICES pc'[p] # "RM" /\ pc[p] # "RM"
+        BY <3>1, <2>1 DEF E2, TypeOK
+      <3> QED
+        BY <2>1 DEF E2, TypeOK
+    <2> SUFFICES \E idxset \in SUBSET 1..(L-1) :
+        /\ \A m \in idxset : Val(m) # "BOT"
+        /\ \A m \in 1..(L-1) : A[m] # "BOT" => m \in idxset
+        /\ \E idxseq \in Perm(idxset) :
+           /\ Justified(idxseq)
+           /\ c.state = [i \in 1..Len(idxseq) |-> Val(idxseq[i])]
+           /\ \A q \in ProcSet : 
+              /\ pc[q] = "RM" => c.res[q] = "BOT"
+              /\ pc[q] = "E1" => c.res[q] = "BOT"
+              /\ (pc[q] = "E2" /\ l[q] \notin idxset) => c.res[q] = "BOT"
+              /\ (pc[q] = "E2" /\ l[q] \in idxset) => c.res[q] = "ACK"
+              /\ pc[q] = "E3" => c.res[q] = "ACK"
+              /\ pc[q] = "D1" => c.res[q] = "BOT"
+              /\ pc[q] = "D2" => c.res[q] = "BOT"
+              /\ pc[q] = "D3" => c.res[q] = v[q]
+      BY <2>2, <2>3 DEF Q
+    <2>4. PICK idxset \in SUBSET 1..(L-1) :
+          /\ \A m \in idxset : Val(m)' # "BOT"
+          /\ \A m \in 1..(L-1) : A'[m] # "BOT" => m \in idxset
+          /\ \E idxseq \in Perm(idxset) :
+             /\ Justified(idxseq)'
+             /\ c.state = [i \in 1..Len(idxseq) |-> Val(idxseq[i])']
+             /\ \A q \in ProcSet : 
+                /\ pc'[q] = "RM" => c.res[q] = "BOT"
+                /\ pc'[q] = "E1" => c.res[q] = "BOT"
+                /\ (pc'[q] = "E2" /\ l[q] \notin idxset) => c.res[q] = "BOT"
+                /\ (pc'[q] = "E2" /\ l[q] \in idxset) => c.res[q] = "ACK"
+                /\ pc'[q] = "E3" => c.res[q] = "ACK"
+                /\ pc'[q] = "D1" => c.res[q] = "BOT"
+                /\ pc'[q] = "D2" => c.res[q] = "BOT"
+                /\ pc'[q] = "D3" => c.res[q] = v[q]
+      BY DEF Q, E2
+    <2>5. PICK idxseq \in Perm(idxset) :
+          /\ Justified(idxseq)'
+          /\ c.state = [i \in 1..Len(idxseq) |-> Val(idxseq[i])']
+          /\ \A q \in ProcSet : 
+              /\ pc'[q] = "RM" => c.res[q] = "BOT"
+              /\ pc'[q] = "E1" => c.res[q] = "BOT"
+              /\ (pc'[q] = "E2" /\ l[q] \notin idxset) => c.res[q] = "BOT"
+              /\ (pc'[q] = "E2" /\ l[q] \in idxset) => c.res[q] = "ACK"
+              /\ pc'[q] = "E3" => c.res[q] = "ACK"
+              /\ pc'[q] = "D1" => c.res[q] = "BOT"
+              /\ pc'[q] = "D2" => c.res[q] = "BOT"
+              /\ pc'[q] = "D3" => c.res[q] = v[q]
+      BY <2>4
+    <2>6. \A m \in idxset : Val(m) # "BOT"
+      <3> SUFFICES ASSUME NEW m \in idxset
+                   PROVE  Val(m) # "BOT"
+        OBVIOUS
+      <3>1. Val(m)' # "BOT"
+        BY <2>4
+      <3>2. CASE A'[m] # "BOT"
+        <4> SUFFICES ASSUME A'[m] # A[m], A[m] = "BOT"
+                     PROVE  Val(m) # "BOT"
+          BY <3>1, <3>2 DEF Val
+        <4>1. pc[p] = "E2" /\ l[p] = m
+          BY <2>1, <3>2 DEF E2, TypeOK
+        <4>2. EnqIdxInv
+          BY PTL
+        <4>3. \A r \in ProcSet : (pc[r] = "E2" /\ l[r] = l[p]) <=> r = p
+          BY <4>2, <4>1 DEF EnqIdxInv
+        <4>4. Val(m) = arg[p].val
+          BY <4>1, <4>3 DEF Val
+        <4>5. arg[p].val \in EltDomain
+          BY <2>1, <4>1 DEF TypeOK, ArgsOf, PCtoOp
+        <4> QED
+          BY <4>4, <4>5, BotNotElt
+      <3>3. CASE A'[m] = "BOT" /\ (\E q \in ProcSet : pc'[q] = "E2" /\ l'[q] = m)
+        <4> DEFINE r == CHOOSE q \in ProcSet : pc'[q] = "E2" /\ l'[q] = m
+        <4>1. r \in ProcSet /\ pc'[r] = "E2" /\ l'[r] = m
+          BY <3>3 DEF Val
+        <4>2. r # p
+          BY <2>1, <4>1 DEF E2, TypeOK
+        <4>3. pc[r] = "E2" /\ l[r] = m
+          BY <2>1, <4>1 DEF E2, TypeOK
+        <4>4. EnqIdxInv
+          BY PTL
+        <4>5. A[l[r]] = "BOT"
+          BY <2>1, <4>1, <4>3, <4>4 DEF EnqIdxInv
+        <4>6. \A q \in ProcSet : (pc[q] = "E2" /\ l[q] = l[r]) <=> q = r
+          BY <4>4, <4>3, <4>1 DEF EnqIdxInv
+        <4>7. Val(m) = arg[r].val
+          BY <4>1, <4>3, <4>5, <4>6 DEF Val
+        <4>8. arg[r].val \in EltDomain
+          BY <2>1, <4>1, <4>3 DEF TypeOK, ArgsOf, PCtoOp
+        <4> QED
+          BY <4>7, <4>8, BotNotElt
+      <3> QED
+        BY <3>1, <3>2, <3>3 DEF Val
+    <2>7. \A m \in 1..(L-1) : A[m] # "BOT" => m \in idxset
+      <3> SUFFICES ASSUME NEW m \in 1..(L-1), A[m] # "BOT"
+                   PROVE  m \in idxset
+        OBVIOUS
+      <3>1. A'[m] # "BOT" => m \in idxset
+        BY <2>4
+      <3> SUFFICES ASSUME m = l[p]
+                   PROVE  A'[m] # "BOT"
+        BY <3>1, <2>1 DEF E2, TypeOK
+      <3>2. A'[l[p]] # "BOT"
+        BY <2>1, BotNotElt DEF E2, TypeOK, ArgsOf, PCtoOp
+      <3> QED
+        BY <3>2            
+    <2> SUFFICES /\ Justified(idxseq)
+                 /\ c.state = [i \in 1..Len(idxseq) |-> Val(idxseq[i])]
+                 /\ \A q \in ProcSet : 
+                    /\ pc[q] = "RM" => c.res[q] = "BOT"
+                    /\ pc[q] = "E1" => c.res[q] = "BOT"
+                    /\ (pc[q] = "E2" /\ l[q] \notin idxset) => c.res[q] = "BOT"
+                    /\ (pc[q] = "E2" /\ l[q] \in idxset) => c.res[q] = "ACK"
+                    /\ pc[q] = "E3" => c.res[q] = "ACK"
+                    /\ pc[q] = "D1" => c.res[q] = "BOT"
+                    /\ pc[q] = "D2" => c.res[q] = "BOT"
+                    /\ pc[q] = "D3" => c.res[q] = v[q]
+      BY <2>6, <2>7
+    <2>8. Justified(idxseq)
+      <3> SUFFICES ASSUME NEW m \in 1..Len(idxseq),
+                          NEW n \in 1..Len(idxseq),
+                          m < n
+                   PROVE  \/ idxseq[m] < idxseq[n]
+                          \/ A[idxseq[n]] # "BOT" => (\E r \in ProcSet : pc[r] = "D2" /\ idxseq[n] < j[r] /\ idxseq[m] < l[r])
+        BY DEF Justified
+      <3>1. idxseq[m] \in idxset /\ idxseq[n] \in idxset
+        BY DEF Perm
+      <3>2. idxseq[m] \in 1..(L-1) /\ idxseq[n] \in 1..(L-1)
+        BY <3>1 
+      <3> SUFFICES ASSUME (idxseq[m] > idxseq[n]), A[idxseq[n]] # "BOT"
+                   PROVE  \E r \in ProcSet : pc[r] = "D2" /\ idxseq[n] < j[r] /\ idxseq[m] < l[r]
+        BY <2>5, <3>2 DEF Perm
+      <3>3. EnqIdxInv
+        BY PTL
+      <3>4. idxseq[n] # l[p]
+        BY <3>3 DEF EnqIdxInv, E2
+      <3>5. A[idxseq[n]] = A'[idxseq[n]]
+        BY <2>1, <3>2, <3>4 DEF E2, TypeOK
+      <3>6. PICK q \in ProcSet : pc'[q] = "D2" /\ idxseq[n] < j'[q] /\ idxseq[m] < l'[q]
+        BY <2>5, <3>2, <3>5 DEF Justified
+      <3>7. q # p
+        BY <2>1, <3>6 DEF E2, TypeOK
+      <3>8. pc[q] = "D2" /\ idxseq[n] < j[q] /\ idxseq[m] < l[q]
+        BY <2>1, <3>6, <3>7 DEF E2, TypeOK
+      <3> QED
+        BY <3>6, <3>8      
+    <2>9. c.state = [i \in 1..Len(idxseq) |-> Val(idxseq[i])]
+      <3> SUFFICES ASSUME NEW i \in 1..Len(idxseq)
+                   PROVE  Val(idxseq[i])' = Val(idxseq[i])
+        BY <2>5
+      <3>1. CASE idxseq[i] = l[p]
+        <4>1. A'[idxseq[i]] = arg[p].val
+          BY <2>1, <3>1 DEF E2, TypeOK
+        <4>2. arg[p].val # "BOT"
+          BY <2>1, BotNotElt DEF E2, TypeOK, ArgsOf, PCtoOp
+        <4>3. A'[idxseq[i]] # "BOT"
+          BY <4>1, <4>2
+        <4>4. Val(idxseq[i])' = arg[p].val
+          BY <4>1, <4>3 DEF Val
+        <4>5. EnqIdxInv
+          BY PTL
+        <4>6. A[l[p]] = "BOT"
+          BY <3>1, <4>5 DEF EnqIdxInv, E2
+        <4>7. pc[p] = "E2" /\ l[p] = idxseq[i]
+          BY <3>1 DEF E2
+        <4>8. \A q \in ProcSet : (pc[q] = "E2" /\ l[q] = idxseq[i]) <=> q = p
+          BY <3>1, <4>5, <4>7 DEF EnqIdxInv
+        <4>9. p = CHOOSE q \in ProcSet : pc[q] = "E2" /\ l[q] = idxseq[i]
+          BY <4>8, <4>7, Zenon
+        <4>10. Val(idxseq[i]) = arg[p].val
+          BY <4>6, <4>7, <4>9 DEF Val
+        <4> QED
+          BY <4>4, <4>10
+      <3> SUFFICES ASSUME idxseq[i] # l[p]
+                   PROVE  Val(idxseq[i])' = Val(idxseq[i])
+        BY <3>1
+      <3>2. A'[idxseq[i]] = A[idxseq[i]]
+        BY <2>1 DEF E2, TypeOK, Perm
+      <3>3. CASE A[idxseq[i]] # "BOT"
+        BY <3>2, <3>3 DEF Val, Perm
+      <3> SUFFICES ASSUME A[idxseq[i]] = "BOT"
+                   PROVE  Val(idxseq[i])' = Val(idxseq[i])
+        BY <3>3
+      <3>4. CASE (\E q \in ProcSet : pc[q] = "E2" /\ l[q] = idxseq[i])
+        <4>1. PICK q \in ProcSet : pc[q] = "E2" /\ l[q] = idxseq[i]
+          BY <3>4
+        <4>2. q # p
+          BY <4>1
+        <4>3. EnqIdxInv
+          BY PTL
+        <4>4. \A r \in ProcSet : (pc[r] = "E2" /\ l[r] = idxseq[i]) <=> r = q
+          BY <4>3, <4>1 DEF EnqIdxInv
+        <4>5. q = CHOOSE r \in ProcSet : pc[r] = "E2" /\ l[r] = idxseq[i]
+          BY <4>4, <4>1, Zenon
+        <4>6. Val(idxseq[i]) = arg[q].val
+          BY <3>4, <4>5 DEF Val
+        <4>7. EnqIdxInv'
+          BY PTL
+        <4>8. \A r \in ProcSet : (pc'[r] = "E2" /\ l'[r] = idxseq[i]) <=> r = q
+          BY <4>7, <4>1, <4>2, <2>1 DEF EnqIdxInv, E2, TypeOK
+        <4>9. A'[idxseq[i]] = "BOT"
+          BY <3>2
+        <4>10. pc'[q] = "E2" /\ l'[q] = idxseq[i]
+          BY <4>1, <2>1 DEF E2, TypeOK
+        <4>11. Val(idxseq[i])' = arg'[q].val
+          BY <4>10, <4>8, <4>9 DEF Val
+        <4> QED
+          BY <4>6, <4>11 DEF E2
+      <3> SUFFICES ASSUME ~(\E q \in ProcSet : pc[q] = "E2" /\ l[q] = idxseq[i])
+                   PROVE  Val(idxseq[i])' = Val(idxseq[i])
+        BY <3>4
+      <3>4. Val(idxseq[i]) = "BOT"
+        BY <3>2, <3>3 DEF Val
+      <3>5. Val(idxseq[i])' = "BOT"
+        BY <3>2, <3>3, <2>1 DEF Val, Perm, TypeOK, E2
+      <3> QED
+        BY <3>4, <3>5
+    <2>10. \A q \in ProcSet : 
+              /\ pc[q] = "RM" => c.res[q] = "BOT"
+              /\ pc[q] = "E1" => c.res[q] = "BOT"
+              /\ (pc[q] = "E2" /\ l[q] \notin idxset) => c.res[q] = "BOT"
+              /\ (pc[q] = "E2" /\ l[q] \in idxset) => c.res[q] = "ACK"
+              /\ pc[q] = "E3" => c.res[q] = "ACK"
+              /\ pc[q] = "D1" => c.res[q] = "BOT"
+              /\ pc[q] = "D2" => c.res[q] = "BOT"
+              /\ pc[q] = "D3" => c.res[q] = v[q]
+      <3> SUFFICES l[p] \in idxset
+        BY <2>1, <2>5 DEF E2, TypeOK
+      <3>0. EnqIdxInv
+        BY PTL
+      <3>1. l[p] \in idxset
+        BY <2>1, <2>4, <3>0, BotNotElt DEF E2, TypeOK, Val, EnqIdxInv, ArgsOf, PCtoOp
+      <3> QED
+        BY <3>1
+    <2> QED
+      BY <2>8, <2>9, <2>10
   <1>3. ASSUME D1(p),
                NEW c \in ConfigDomain,
                c \in Q'
@@ -948,6 +1201,7 @@ THEOREM ReturnLemma == ASpec => [][ReturnProperty]_varsP
 (* Plausibility set lemma 2.5: If no variable changes, Q remains the same. *)
 (***************************************************************************)
 THEOREM UnchangedLemma == UNCHANGED varsP => Q' = Q
+  BY Isa DEF Q, varsP, vars, implvars, Justified, Val
 
 -----------------------------------------------------------------------------
 (***************************************************************************)
